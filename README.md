@@ -1,69 +1,97 @@
-# Processamento de imagens para estudos
+# Nexo Estudos - Laboratorio de processamento de imagens
 
-Projeto acadêmico voltado para o estudo de processamento digital de imagens e reconhecimento óptico de caracteres (OCR). A aplicação permite receber uma imagem, aplicar etapas de pré-processamento e extrair texto automaticamente para demonstração prática dos conceitos de visão computacional.
+Aplicacao academica de processamento digital de imagens e reconhecimento optico de caracteres (OCR). O laboratorio aceita imagens e PDFs, prepara cada pagina para leitura e apresenta o texto e os resultados do processamento.
 
-## Objetivo do projeto
+## Recursos
 
-O trabalho tem como objetivo aplicar técnicas de processamento de imagem para melhorar a legibilidade de documentos e facilitar a extração de texto. A interface foi criada para permitir a visualização das etapas do processo, além de mostrar resultados em um ambiente didático e de fácil compreensão.
+- Upload de ate dois arquivos por processamento: PNG, JPG/JPEG, BMP, TIFF, WEBP ou PDF.
+- Conversao das paginas do PDF em imagens para processamento; cada PDF pode ter ate 10 paginas.
+- Pre-processamento com tons de cinza, ajuste de contraste, reducao de ruido, binarizacao e correcao de inclinacao.
+- OCR em portugues e ingles via Tesseract.
+- Tempo de processamento individual de cada imagem ou pagina, mostrado em milissegundos ou segundos.
+- Laboratório protegido por login em `/login`, com criação de conta, recuperação de senha e bloqueio após 5 tentativas erradas.
+- Menu **Comparar imagens**, logo abaixo de **Historico**, com tempos por item e comparacao de quaisquer duas imagens salvas no historico.
+- Ajustes manuais, historico local e sugestoes de estudo.
 
-## Funcionalidades
+## Requisitos
 
-- Recebe imagens em formatos como PNG, JPG, BMP, TIFF e WEBP.
-- Converte a imagem para escala de cinza e melhora o contraste.
-- Reduz ruídos e corrige pequenas inclinações da página.
-- Aplica binarização para separar melhor texto e fundo.
-- Reconhece texto automaticamente com Tesseract OCR.
-- Exibe imagem original, imagem processada e texto extraído.
-- Mantém um histórico de imagens processadas dentro da interface.
-- Apresenta detalhes técnicos como dimensões, pixels, qualidade, formato e cores utilizadas.
+- Python 3.11 ou superior.
+- Tesseract OCR instalado no sistema (o executavel padrao em `C:\Program Files\Tesseract-OCR` e detectado automaticamente).
+- Modelos de idioma `por` e `eng` na pasta local `%LOCALAPPDATA%\Tesseract-OCR\tessdata`.
+- Dependencias Python de `requirements.txt`, incluindo PyMuPDF para converter PDFs.
 
-## Estrutura do projeto
+## Instalacao e execucao no Windows
 
-    Processamento-Imagens-Estudos/
-    ├── backend/
-    │   ├── __init__.py
-    │   ├── main.py             # API FastAPI e servidor do frontend
-    │   └── processamento.py    # operações de visão computacional e OCR
-    ├── frontend/
-    │   ├── index.html
-    │   ├── app.js
-    │   └── style.css
-    ├── requirements.txt
-    └── README.md
+No PowerShell, entre na pasta do projeto e execute:
 
-## Requisitos e execução
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload
+```
 
-É necessário ter Python 3.11+ e o Tesseract OCR instalado com os idiomas português (por) e inglês (eng). O pacote Python pytesseract não instala o programa Tesseract, então o executável precisa estar disponível no sistema.
+O comando chama o Python do ambiente virtual diretamente e funciona mesmo quando o PowerShell bloqueia scripts de ativacao. Abra [http://127.0.0.1:8000](http://127.0.0.1:8000) no navegador. A documentacao interativa da API fica em [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-No Windows:
+Se o Tesseract estiver fora do caminho padrao, configure `TESSERACT_CMD` com o caminho do executavel. O idioma padrao de OCR e `por+eng`; use `OCR_LANGUAGES` para alterar essa configuracao.
 
-    .venv\Scripts\Activate.ps1
-    pip install -r requirements.txt
-    uvicorn backend.main:app --reload
+Para instalar os modelos de idioma em uma maquina nova, execute no PowerShell:
 
-Acesse http://127.0.0.1:8000.
+```powershell
+$dadosOCR = Join-Path $env:LOCALAPPDATA 'Tesseract-OCR\tessdata'
+New-Item -ItemType Directory -Force -Path $dadosOCR | Out-Null
+Invoke-WebRequest 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata' -OutFile (Join-Path $dadosOCR 'eng.traineddata')
+Invoke-WebRequest 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/por.traineddata' -OutFile (Join-Path $dadosOCR 'por.traineddata')
+```
 
-## Fluxo do sistema
+O projeto procura esses modelos nessa pasta do usuario e usa o conjunto rapido oficial do Tesseract.
 
-1. Upload da imagem.
-2. Validação do arquivo.
-3. Conversão para tons de cinza.
-4. Ajuste de contraste e redução de ruído.
-5. Correção de inclinação da página.
-6. Binarização e extração do texto por OCR.
-7. Exibição do resultado na interface.
+## Login e contas
 
-## Fundamentos técnicos
+O laboratório só abre depois do login: sem sessão, qualquer página redireciona para `/login` e a API responde `401`. As contas ficam no banco SQLite `contas.db` (fora do Git), com senhas guardadas apenas como hash scrypt.
 
-Uma imagem digital é representada por uma matriz de pixels. A qualidade do resultado depende diretamente da qualidade da entrada e da forma como os dados visuais são tratados antes do reconhecimento. Técnicas como CLAHE, filtros de suavização, limiarização adaptativa e correção de alinhamento foram aplicadas para melhorar a leitura automática do conteúdo.
+- **Entrar:** após 5 tentativas erradas seguidas, o login fica bloqueado por 15 minutos, contando por IP e por e-mail. Um login certo zera a contagem.
+- **Manter conectado:** sem marcar, a sessão termina em 8 horas; marcado, dura 30 dias.
+- **Criar conta:** cadastra um usuário comum (nome, e-mail e senha com pelo menos 8 caracteres) e já entra no laboratório.
+- **Esqueceu a senha?:** envia um link válido por 30 minutos e de uso único. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `SMTP_FROM` no `.env` (veja `.env.example`). Sem SMTP, o link aparece no terminal do servidor.
 
-## Aplicações do projeto
+Para criar o administrador ou trocar a senha dele, execute na raiz do projeto:
 
-- Documentos impressos com baixa qualidade de imagem.
-- Páginas fotocopiadas ou com ruído visual.
-- Documentos de estudo e apostilas.
-- Extração de texto em ambientes acadêmicos e didáticos.
+```powershell
+.\.venv\Scripts\python.exe -m backend.contas
+```
 
-## Conclusão
+Para produção, configure `SESSION_SECRET` com um segredo longo, publique o site por HTTPS e defina `COOKIE_HTTPS_ONLY=true`. O limite de tentativas fica na memória do servidor e é zerado quando ele reinicia.
 
-O projeto demonstra de forma prática como a combinação entre processamento de imagem e OCR pode transformar uma imagem em texto legível. Além de funcionar como ferramenta experimental, ele também serve como base para apresentação de conceitos de visão computacional e de aplicação tecnológica em contextos acadêmicos.
+## Como usar
+
+1. Abra a tela Processamento no menu Laboratorio.
+2. Selecione ou arraste uma ou duas imagens/PDFs (ate 12 MB cada).
+3. Clique em **Processar imagem**. PDFs sao processados pagina por pagina, com limite de 10 paginas por arquivo.
+4. Veja o tempo gasto no cartao **Tempo de processamento**. No caso de PDF, cada pagina aparece com seu tempo no historico.
+5. No menu do Laboratorio, abra **Comparar imagens** abaixo de **Historico**. Escolha dois itens do historico para comparar os originais lado a lado.
+6. Use as abas de resumo, detalhes e antes/depois para consultar o resultado.
+
+## Capturas de tela
+
+Salve as capturas da interface em `docs/screenshots/` e atualize esta secao com as imagens do Laboratorio e da comparacao. Neste ambiente nao havia uma janela de navegador disponivel para capturar a interface; por isso, as imagens ainda precisam ser adicionadas.
+
+## Estrutura
+
+```text
+backend/
+  main.py             # API FastAPI, conversao de PDF e servidor do frontend
+  processamento.py    # processamento de imagem e OCR
+frontend/
+  index.html
+  app.js
+  style.css
+tests/
+  test_assistente_estudos.py
+  test_autenticacao.py
+requirements.txt
+README.md
+```
+
+## Limites de upload
+
+Cada arquivo pode ter no maximo 12 MB. Sao aceitos ate dois arquivos por requisicao e ate 10 paginas por PDF. PDFs protegidos por senha nao sao processados. As imagens sao processadas localmente pelo servidor deste projeto. Miniaturas JPEG para comparacao ficam no IndexedDB deste navegador junto ao historico; os registros antigos sem miniatura precisam ser processados novamente para entrar na comparacao.

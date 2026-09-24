@@ -3,4 +3,7 @@ __pycache__/
 .venv/
 venv/
 .env
+.auth_session_secret
 .vscode/
+.tessdata/
+contas.db

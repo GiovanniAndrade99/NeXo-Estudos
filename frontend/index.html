@@ -22,6 +22,7 @@
           <div class="nav-group-label">Principal</div>
           <button class="nav-item active" type="button" data-screen="processamento"><span>◉</span> Processamento</button>
           <button class="nav-item" type="button" data-screen="historico"><span>◫</span> Histórico</button>
+          <button class="nav-item" type="button" data-screen="comparar"><span>&harr;</span> Comparar imagens</button>
           <button class="nav-item" type="button" data-screen="etapas"><span>⌘</span> Etapas da análise</button>
           <button class="nav-item" type="button" data-screen="fundamentos"><span>▦</span> Fundamentos</button>
         </div>
@@ -30,13 +31,14 @@
           <div class="nav-group-label">Conta</div>
           <button class="nav-item" type="button" data-screen="perfil"><span>◍</span> Perfil</button>
           <button class="nav-item" type="button" data-screen="configuracoes"><span>⚙</span> Configurações</button>
+          <button class="nav-item" type="button" data-screen="suporte"><span>&quest;</span> Suporte</button>
           <button class="nav-item" type="button" data-screen="sobre"><span>◌</span> Sobre</button>
         </div>
       </nav>
 
       <div class="sidebar-bottom">
         <div class="course-card"><span class="course-icon">✳</span><div><strong>Visão computacional</strong><small>Projeto de estudos</small></div></div>
-        <div class="profile"><div class="avatar">ES</div><div><strong>Espaço de estudo</strong><small>Experimento local</small></div><span class="more">···</span></div>
+        <div class="profile"><div id="account-avatar" class="avatar">ES</div><div><strong id="account-name">Espaço de estudo</strong><small id="account-provider">Experimento local</small></div><a id="logout-link" class="more logout-link" href="/auth/logout" hidden>Sair</a></div>
       </div>
     </aside>
 
@@ -57,11 +59,11 @@
           <div class="upload-panel panel">
             <div class="panel-heading"><div><span class="step-tag">01 / ENTRADA</span><h2>Escolha uma imagem</h2></div><span class="panel-glyph">↗</span></div>
             <label class="dropzone" id="dropzone" for="image-input" tabindex="0">
-              <input id="image-input" type="file" accept="image/png,image/jpeg,image/bmp,image/tiff,image/webp" multiple>
+              <input id="image-input" type="file" accept="image/png,image/jpeg,image/bmp,image/tiff,image/webp,application/pdf,.pdf" multiple>
               <span class="upload-icon">↑</span>
               <strong>Arraste sua página até aqui</strong>
               <span class="drop-copy">ou <span>procure no dispositivo</span></span>
-              <small>PNG, JPG, BMP, TIFF ou WEBP · até 12 MB cada · máximo 2 imagens</small>
+              <small>PNG, JPG, BMP, TIFF, WEBP ou PDF &middot; ate 12 MB cada &middot; maximo 2 arquivos (PDF com ate 10 paginas)</small>
             </label>
             <div id="uploaded-summary" class="summary-box" aria-live="polite">
               <div class="summary-header"><span>Resumo das imagens</span><strong id="selected-count">0 selecionadas</strong></div>
@@ -78,7 +80,11 @@
             <div class="panel-heading"><div><span class="step-tag">02 / RESULTADO</span><h2>Leitura da página</h2></div><span class="result-badge" id="result-badge">AGUARDANDO IMAGEM</span></div>
             <div id="empty-result" class="empty-result"><div class="empty-illustration"><span class="sheet sheet-back"></span><span class="sheet sheet-front"><i></i><i></i><i></i><b>✳</b></span></div><strong>Sua análise aparecerá aqui</strong><span>Envie uma imagem para iniciar o processamento.</span></div>
             <div id="result-content" hidden>
-              <div class="stats-row"><div><span>ARQUIVO</span><strong id="file-name">—</strong></div><div><span>DIMENSÕES</span><strong id="image-dimensions">—</strong></div><div><span>ALINHAMENTO</span><strong id="rotation-value">—</strong></div></div>
+              <div class="stats-row"><div><span>ARQUIVO</span><strong id="file-name">—</strong></div><div><span>DIMENSÕES</span><strong id="image-dimensions">—</strong></div><div><span>ALINHAMENTO</span><strong id="rotation-value">—</strong></div><div class="time-stat"><span>TEMPO DE PROCESSAMENTO</span><strong id="processing-time">-</strong><small id="processing-time-description">Tempo total para tratar a imagem e executar o OCR.</small></div></div>
+
+              <div class="processing-times">
+                <strong>Tempo por imagem ou pagina</strong>
+              </div>
 
               <div class="result-tabs" aria-label="Abas do resultado">
                 <button class="result-tab active" type="button" data-result-tab="resumo">Resumo</button>
@@ -168,6 +174,32 @@
         <div class="info-card large">
           <p class="history-helper">Exporte o resumo de qualquer processamento para continuar seus estudos.</p>
           <div id="history-menu-list" class="history-list"></div>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="comparar">
+        <div class="screen-header">
+          <span class="step-tag">HISTORICO DO LABORATORIO</span>
+          <h2>Historico e comparacao</h2>
+          <p>Consulte o tempo de cada processamento e compare quaisquer duas imagens salvas neste navegador.</p>
+        </div>
+        <div class="info-card large">
+          <h3>Imagens processadas</h3>
+          <div id="comparison-history-list" class="history-list"></div>
+        </div>
+        <div class="info-card large margin-top history-compare-section">
+          <h3>Comparar imagens do historico</h3>
+          <p class="history-helper">Escolha duas imagens processadas anteriormente para ver lado a lado.</p>
+          <div class="comparison-selectors">
+            <label>Imagem A<select id="compare-left" disabled></select></label>
+            <label>Imagem B<select id="compare-right" disabled></select></label>
+          </div>
+          <div class="image-comparison user-comparison" hidden>
+            <figure><div class="image-frame"><img id="compare-left-image" alt="Imagem A salva no historico"></div><figcaption id="compare-left-caption">Imagem A</figcaption></figure>
+            <figure><div class="image-frame"><img id="compare-right-image" alt="Imagem B salva no historico"></div><figcaption id="compare-right-caption">Imagem B</figcaption></figure>
+          </div>
+          <p id="comparison-empty" class="comparison-help">Processe imagens para adiciona-las ao historico e compara-las.</p>
+          <p id="history-comparison-status" class="comparison-help" role="status"></p>
         </div>
       </section>
 
@@ -339,6 +371,38 @@
           <h3>Como o sistema foi pensado</h3>
           <p>As configurações são direcionadas para documentos que precisam de uma leitura mais confiável, como páginas de estudo, formulários, textos impressos e materiais com baixa qualidade visual. O objetivo é melhorar a retenção dos caracteres e reduzir falhas no OCR.</p>
           <p>Quando a imagem entra com boa nitidez, a etapa de pré-processamento torna os contornos mais definidos e aumenta a chance de identificar corretamente as letras, palavras e frases.</p>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="suporte">
+        <div class="screen-header">
+          <span class="step-tag">CENTRAL DE AJUDA</span>
+          <h2>Suporte</h2>
+          <p>Consulte o estado do laboratorio e encontre orientacoes para resolver problemas comuns.</p>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-box"><span>API local</span><strong id="support-api-status">Verificando</strong></div>
+          <div class="detail-box"><span>Reconhecimento OCR</span><strong id="support-ocr-status">Verificando</strong></div>
+        </div>
+
+        <div class="settings-grid margin-top">
+          <article class="info-card">
+            <h3>O OCR nao esta disponivel</h3>
+            <p>O Tesseract precisa estar instalado com os modelos de idioma portugues e ingles. Reinicie o servidor depois de instalar ou configurar o executavel.</p>
+          </article>
+          <article class="info-card">
+            <h3>O servidor nao conecta</h3>
+            <p>Confira se a API esta em execucao e abra o mesmo endereco local usado para iniciar o servidor. A documentacao da API fica em <code>/docs</code>.</p>
+          </article>
+          <article class="info-card">
+            <h3>O arquivo nao foi aceito</h3>
+            <p>Use PNG, JPG, BMP, TIFF, WEBP ou PDF. Cada arquivo pode ter ate 12 MB; cada PDF pode ter ate 10 paginas.</p>
+          </article>
+          <article class="info-card">
+            <h3>Uma imagem antiga nao aparece para comparar</h3>
+            <p>O historico guarda miniaturas no navegador. Registros criados antes desse recurso precisam ser processados novamente para salvar a imagem.</p>
+          </article>
         </div>
       </section>
 
