@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -287,17 +288,30 @@ def gerar_descricao_processo(texto: str, assistente: dict | None = None) -> str:
     )
 
 
-def _configurar_tesseract() -> None:
+def _configurar_tesseract() -> str:
     executavel = os.getenv("TESSERACT_CMD")
+    if not executavel:
+        instalacao_padrao = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+        if instalacao_padrao.is_file():
+            executavel = str(instalacao_padrao)
     if executavel:
         pytesseract.pytesseract.tesseract_cmd = executavel
+    diretorios_modelos = []
+    dados_locais = os.getenv("LOCALAPPDATA")
+    if dados_locais:
+        diretorios_modelos.append(Path(dados_locais) / "Tesseract-OCR" / "tessdata")
+    diretorios_modelos.append(Path(__file__).resolve().parent.parent / ".tessdata")
+    for diretorio_modelos in diretorios_modelos:
+        if (diretorio_modelos / "por.traineddata").is_file() and (diretorio_modelos / "eng.traineddata").is_file():
+            return f'--tessdata-dir "{diretorio_modelos}"'
+    return ""
 
 
 def tesseract_disponivel() -> tuple[bool, str | None]:
-    _configurar_tesseract()
+    config_dados = _configurar_tesseract()
     try:
         pytesseract.get_tesseract_version()
-        idiomas = set(pytesseract.get_languages(config=""))
+        idiomas = set(pytesseract.get_languages(config=config_dados))
         ausentes = {idioma for idioma in IDIOMAS_OCR.split("+") if idioma not in idiomas}
         if ausentes:
             return False, "Pacote(s) de idioma ausente(s) no Tesseract: " + ", ".join(sorted(ausentes)) + "."
@@ -345,11 +359,14 @@ def processar(imagem: np.ndarray) -> ResultadoProcessamento:
         cv2.THRESH_BINARY, 31, 11,
     )
     alinhada, inclinacao = _corrigir_inclinacao(binaria)
+    config_dados = _configurar_tesseract()
     disponivel, aviso = tesseract_disponivel()
     texto = ""
     if disponivel:
         try:
-            texto = pytesseract.image_to_string(alinhada, lang=IDIOMAS_OCR, config="--psm 6").strip()
+            texto = pytesseract.image_to_string(
+                alinhada, lang=IDIOMAS_OCR, config=f"--psm 6 {config_dados}".strip(),
+            ).strip()
         except pytesseract.TesseractError as erro:
             disponivel = False
             aviso = "O Tesseract não conseguiu processar esta imagem: " + str(erro)
