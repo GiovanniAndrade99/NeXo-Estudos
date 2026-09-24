@@ -60,6 +60,8 @@ async def processar_arquivo(arquivos: list[UploadFile] = File(...)):
             "ocr_disponivel": resultado.ocr_disponivel,
             "aviso": resultado.aviso,
             "texto": resultado.texto,
+            "assistente_estudos": resultado.assistente_estudos,
+            "descricao_processo": resultado.descricao_processo,
             "imagens": {
                 "original": codificar_png(resultado.original),
                 "tons_cinza": codificar_png(resultado.tons_cinza),

@@ -21,6 +21,7 @@
         <div class="nav-group">
           <div class="nav-group-label">Principal</div>
           <button class="nav-item active" type="button" data-screen="processamento"><span>◉</span> Processamento</button>
+          <button class="nav-item" type="button" data-screen="historico"><span>◫</span> Histórico</button>
           <button class="nav-item" type="button" data-screen="etapas"><span>⌘</span> Etapas da análise</button>
           <button class="nav-item" type="button" data-screen="fundamentos"><span>▦</span> Fundamentos</button>
         </div>
@@ -104,11 +105,35 @@
                 <div id="ocr-warning" class="warning-box" hidden></div>
                 <div class="ocr-heading"><div><span class="step-tag">03 / RECONHECIMENTO</span><h3>Texto identificado</h3></div><button id="copy-button" class="copy-button" disabled>Copiar texto <span>▢</span></button></div>
                 <pre id="recognized-text" class="recognized-text">O texto reconhecido será exibido aqui.</pre>
+
+                <div class="assistant-card" aria-live="polite">
+                  <div class="assistant-header">
+                    <div><span class="step-tag">04 / ASSISTENTE</span><h3>Livro sugerido</h3></div>
+                  </div>
+                  <h4 id="assistant-book-title">—</h4>
+                  <p id="assistant-author" class="assistant-author">Autor: não identificado</p>
+                  <p id="assistant-description">A análise da imagem ainda não gerou uma sugestão de material didático.</p>
+                  <ul id="assistant-figures" class="assistant-figures">
+                    <li>Sem figuras detectadas</li>
+                  </ul>
+
+                  <div class="study-box">
+                    <h5>Resumo do estudo</h5>
+                    <p id="study-summary">O assistente ainda não gerou um resumo para esta imagem.</p>
+                  </div>
+
+                  <div class="study-box">
+                    <h5>Exercícios de revisão</h5>
+                    <ul id="study-exercises" class="exercise-list">
+                      <li>Sem exercícios gerados ainda.</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
 
               <div class="result-tab-panel" data-result-panel="historico">
                 <div class="panel-subtitle">Histórico de imagens processadas</div>
-                <div id="history-list" class="history-list"></div>
+                <div id="history-result-list" class="history-list"></div>
               </div>
 
               <div class="result-tab-panel" data-result-panel="detalhes">
@@ -135,6 +160,17 @@
         </section>
       </section>
 
+      <section class="screen" data-screen-content="historico">
+        <div class="screen-header">
+          <span class="step-tag">REGISTRO</span>
+          <h2>Histórico de processamentos</h2>
+        </div>
+        <div class="info-card large">
+          <p class="history-helper">Exporte o resumo de qualquer processamento para continuar seus estudos.</p>
+          <div id="history-menu-list" class="history-list"></div>
+        </div>
+      </section>
+
       <section class="screen" data-screen-content="etapas">
         <div class="screen-header">
           <span class="step-tag">COMO A IMAGEM É TRATADA</span>
@@ -143,6 +179,15 @@
 
         <div class="steps-grid">
           <article class="step-card">
+            <div class="step-visual step-visual-gray" aria-label="Exemplo de conversão para tons de cinza">
+              <div class="mini-sheet before">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <div class="mini-sheet after">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <span class="step-badge">antes → depois</span>
+            </div>
             <span class="step-number">02</span>
             <div class="step-symbol blue">◐</div>
             <h3>Tons de cinza</h3>
@@ -151,6 +196,15 @@
           </article>
 
           <article class="step-card">
+            <div class="step-visual step-visual-noise" aria-label="Exemplo de ajuste de contraste e redução de ruído">
+              <div class="mini-sheet before noise-before">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <div class="mini-sheet after noise-after">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <span class="step-badge">clareza</span>
+            </div>
             <span class="step-number">03</span>
             <div class="step-symbol lilac">◒</div>
             <h3>Contraste e ruído</h3>
@@ -159,6 +213,15 @@
           </article>
 
           <article class="step-card">
+            <div class="step-visual step-visual-rotation" aria-label="Exemplo de correção de inclinação da página">
+              <div class="mini-sheet before tilt-before">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <div class="mini-sheet after tilt-after">
+                <span class="line"></span><span class="line"></span><span class="line"></span><span class="line short"></span>
+              </div>
+              <span class="step-badge">alinhamento</span>
+            </div>
             <span class="step-number">04</span>
             <div class="step-symbol orange">⤾</div>
             <h3>Correção de ângulo</h3>

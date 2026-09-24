@@ -499,6 +499,11 @@ button, input { font: inherit; }
   display: grid;
   gap: 12px;
 }
+.history-helper {
+  margin: 0 0 16px;
+  color: #a9b8cb;
+  line-height: 1.5;
+}
 .history-item {
   display: flex;
   align-items: center;
@@ -509,6 +514,28 @@ button, input { font: inherit; }
   border-radius: 12px;
   padding: 12px 14px;
 }
+.history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-format,
+.history-save-button {
+  min-height: 32px;
+  border: 1px solid #3a5068;
+  border-radius: 8px;
+  background: #1b2b3e;
+  color: #dce9fb;
+  font-size: 11px;
+}
+.history-format { padding: 0 8px; }
+.history-save-button {
+  padding: 0 11px;
+  cursor: pointer;
+}
+.history-save-button:hover { border-color: #b9f36b; color: #b9f36b; }
 .history-item strong {
   font-size: 13px;
   display: block;
@@ -687,6 +714,81 @@ button, input { font: inherit; }
   min-height: 180px;
 }
 
+.assistant-card {
+  margin-top: 18px;
+  border: 1px solid #2b3d52;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(18, 29, 45, 0.95), rgba(13, 23, 33, 0.95));
+.assistant-author {
+  margin: 0 0 10px;
+  color: #a8c5e6;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+  padding: 16px 18px;
+}
+.assistant-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.assistant-header h3 {
+  margin: 6px 0 0;
+  font: 700 17px/1.2 var(--display);
+}
+.assistant-card h4 {
+  margin: 14px 0 8px;
+  font-size: 20px;
+  color: #dff9b5;
+}
+.assistant-card p {
+  margin: 0;
+  color: #b7c7d8;
+  line-height: 1.6;
+}
+.assistant-figures {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.assistant-figures li {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid #314968;
+  background: rgba(141, 183, 255, 0.06);
+  color: #dfefff;
+  font-size: 11px;
+}
+.study-box {
+  margin-top: 18px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid #2d415d;
+  background: rgba(16, 27, 42, 0.85);
+}
+.study-box h5 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #a8c5e6;
+}
+.study-box p {
+  margin: 0;
+  color: #e9f2ff;
+  line-height: 1.6;
+}
+.exercise-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: #dfeeff;
+  line-height: 1.5;
+}
+
 .process-section { padding-top: 6px; }
 .section-title {
   display: flex;
@@ -700,6 +802,17 @@ button, input { font: inherit; }
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  max-width: 1020px;
+  margin: 28px auto 0;
+  justify-content: center;
+}
+.screen[data-screen-content="etapas"] {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.screen[data-screen-content="etapas"] .screen-header {
+  align-items: center;
+  text-align: center;
 }
 .step-card {
   background: #172234;
@@ -708,6 +821,64 @@ button, input { font: inherit; }
   padding: 18px 16px 16px;
   display: grid;
   gap: 14px;
+  justify-items: center;
+  text-align: center;
+}
+.step-visual {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+  min-height: 190px;
+  align-items: center;
+  padding: 12px 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 165, 191, 0.22);
+  background: rgba(15, 22, 31, 0.9);
+}
+.mini-sheet {
+  position: relative;
+  height: 154px;
+  border-radius: 8px;
+  border: 1px solid rgba(130, 150, 181, 0.48);
+  background: linear-gradient(180deg, rgba(72, 90, 116, 0.8), rgba(20, 29, 38, 0.9));
+  overflow: hidden;
+}
+.mini-sheet .line {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.8);
+}
+.mini-sheet .line:nth-child(1) { top: 32px; }
+.mini-sheet .line:nth-child(2) { top: 58px; }
+.mini-sheet .line:nth-child(3) { top: 84px; }
+.mini-sheet .line:nth-child(4) { top: 110px; width: 42%; }
+.mini-sheet.after {
+  background: linear-gradient(180deg, rgba(165, 223, 122, 0.2), rgba(22, 32, 26, 0.9));
+}
+.mini-sheet.after .line { background: rgba(217, 255, 168, 0.93); }
+.mini-sheet.before.noise-before { filter: contrast(1.1) blur(0.5px); }
+.mini-sheet.after.noise-after { background: linear-gradient(180deg, rgba(181, 139, 255, 0.2), rgba(24, 21, 35, 0.9)); }
+.mini-sheet.after.noise-after .line { background: rgba(220, 199, 255, 0.95); }
+.mini-sheet.before.tilt-before { transform: skewX(-8deg) rotate(-4deg); }
+.mini-sheet.after.tilt-after { transform: skewX(0deg) rotate(0deg); }
+.step-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(13, 16, 24, 0.7);
+  border: 1px solid rgba(182, 255, 116, 0.25);
+  color: #dff9b5;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 .step-number {
   font-size: 10px;
@@ -746,6 +917,7 @@ button, input { font: inherit; }
   margin: 0;
   color: #a8b6c7;
   line-height: 1.55;
+  max-width: 280px;
 }
 .step-foot {
   font-size: 9px;

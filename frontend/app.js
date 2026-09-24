@@ -11,11 +11,17 @@ const navItems = document.querySelectorAll(".nav-item");
 const screens = document.querySelectorAll(".screen");
 const resultTabs = document.querySelectorAll(".result-tab");
 const resultPanels = document.querySelectorAll(".result-tab-panel");
-const historyList = document.querySelector("#history-list");
+const historyList = document.querySelector("#history-result-list");
 const processedImage = document.querySelector("#processed-image");
 const beforeImage = document.querySelector("#before-image");
 const afterImage = document.querySelector("#after-image");
 const saveImageButton = document.querySelector("#save-image-button");
+const assistantBookTitle = document.querySelector("#assistant-book-title");
+const assistantAuthor = document.querySelector("#assistant-author");
+const assistantDescription = document.querySelector("#assistant-description");
+const assistantFigures = document.querySelector("#assistant-figures");
+const studySummary = document.querySelector("#study-summary");
+const studyExercises = document.querySelector("#study-exercises");
 const adjustmentControls = {
   brightness: document.querySelector("#brightness-control"),
   contrast: document.querySelector("#contrast-control"),
@@ -199,16 +205,61 @@ function renderHistory(records) {
     return;
   }
 
-  historyList.innerHTML = records.map((item) => `
+  historyList.innerHTML = records.map(historyItemMarkup).join("");
+}
+
+function historyItemMarkup(item, index) {
+  return `
     <div class="history-item">
       <div>
         <strong>${item.name}</strong>
         <small>${item.dimensions} · ${item.date}</small>
       </div>
-      <span class="history-meta">${item.status}</span>
+      <div class="history-actions">
+        <span class="history-meta">${item.status}</span>
+        <select class="history-format" data-history-format="${index}" aria-label="Formato para salvar ${item.name}">
+          <option value="txt">TXT</option>
+          <option value="json">JSON</option>
+        </select>
+        <button class="history-save-button" type="button" data-history-save="${index}">Salvar como <span>↓</span></button>
+      </div>
     </div>
-  `).join("");
+  `;
 }
+
+function saveHistoryItem(item, format) {
+  const assistant = item.assistente || {};
+  const report = format === "json"
+    ? JSON.stringify(item, null, 2)
+    : [
+      `Imagem: ${item.name}`,
+      `Dimensões: ${item.dimensions}`,
+      `Processado em: ${item.date}`,
+      `Status: ${item.status}`,
+      `Livro sugerido: ${assistant.livro || "não identificado"}`,
+      `Autor: ${assistant.autor || "não identificado"}`,
+      `Resumo: ${assistant.resumo_estudo || "não disponível"}`,
+      "",
+      "Exercícios de revisão:",
+      ...(assistant.exercicios_revisao || []).map((exercise, index) => `${index + 1}. ${exercise}`)
+    ].join("\n");
+
+  const blob = new Blob([report], { type: format === "json" ? "application/json" : "text/plain" });
+  const link = document.createElement("a");
+  link.download = `${item.name.replace(/\.[^.]+$/, "")}-historico.${format}`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-save]");
+  if (!button) return;
+  const records = JSON.parse(localStorage.getItem("process-history") || "[]");
+  const item = records[Number(button.dataset.historySave)];
+  const format = button.parentElement.querySelector(`[data-history-format="${button.dataset.historySave}"]`)?.value || "txt";
+  if (item) saveHistoryItem(item, format);
+});
 
 function updateDetails(data) {
   const pixels = (data.dimensoes?.largura || 0) * (data.dimensoes?.altura || 0);
@@ -221,6 +272,49 @@ function updateDetails(data) {
   document.querySelector("#detail-format").textContent = sourceFile?.type?.split("/")[1]?.toUpperCase() || "PNG";
   beforeImage.src = imageUrl(data.imagens.original);
   afterImage.src = imageUrl(data.imagens.processada);
+}
+
+function renderAssistenteEstudos(assistente) {
+  if (!assistente) {
+    assistantBookTitle.textContent = "—";
+    assistantAuthor.textContent = "Autor: não identificado";
+    assistantDescription.textContent = "A análise da imagem ainda não gerou uma sugestão de material didático.";
+    assistantFigures.innerHTML = "<li>Sem figuras detectadas</li>";
+    studySummary.textContent = "O assistente ainda não gerou um resumo para esta imagem.";
+    studyExercises.innerHTML = "<li>Sem exercícios gerados ainda.</li>";
+    return;
+  }
+
+  assistantBookTitle.textContent = assistente.livro || "Material didático genérico";
+  assistantAuthor.textContent = `Autor: ${assistente.autor || "não identificado"}`;
+  assistantDescription.textContent = assistente.descricao || "A imagem parece conter material de estudo, mas ainda não foi possível identificar um livro com clareza.";
+
+  const figuras = Array.isArray(assistente.figuras) && assistente.figuras.length
+    ? assistente.figuras
+    : ["Resumo visual", "Tema principal", "Exercícios de revisão"];
+
+  assistantFigures.innerHTML = figuras.slice(0, 4).map((figura) => `<li>${figura}</li>`).join("");
+  studySummary.textContent = assistente.resumo_estudo || "O assistente não gerou um resumo para esta imagem.";
+
+  const exercicios = Array.isArray(assistente.exercicios_revisao) && assistente.exercicios_revisao.length
+    ? assistente.exercicios_revisao
+    : ["Revise os conceitos principais da imagem e descreva com suas próprias palavras o tema central."];
+
+  studyExercises.innerHTML = exercicios.slice(0, 3).map((item) => `<li>${item}</li>`).join("");
+}
+
+function renderHistoricMenu() {
+  const records = JSON.parse(localStorage.getItem("process-history") || "[]");
+  const historicTargets = [document.querySelector("#history-result-list"), document.querySelector("#history-menu-list")].filter(Boolean);
+
+  historicTargets.forEach((list) => {
+    if (!records.length) {
+      list.innerHTML = '<div class="history-item"><div><strong>Nenhuma imagem processada</strong><small>Envie uma imagem para registrar o histórico.</small></div><span class="history-meta">SEM REGISTRO</span></div>';
+      return;
+    }
+
+    list.innerHTML = records.map(historyItemMarkup).join("");
+  });
 }
 
 processButton.addEventListener("click", async () => {
@@ -249,25 +343,30 @@ processButton.addEventListener("click", async () => {
     processedImage.src = processedImageSource;
     saveImageButton.disabled = false;
     applyManualAdjustments();
-    document.querySelector("#recognized-text").textContent =
-      payload.texto || "Nenhum texto foi reconhecido nesta imagem.";
-    document.querySelector("#copy-button").disabled = !payload.texto;
+    const descricaoProcesso = payload.descricao_processo || (
+      "A imagem foi processada em tons de cinza, com contraste ajustado, ruído reduzido e alinhamento aplicado antes da extração do conteúdo."
+    );
+    document.querySelector("#recognized-text").textContent = descricaoProcesso;
+    document.querySelector("#copy-button").disabled = false;
     const warning = document.querySelector("#ocr-warning");
     warning.hidden = !payload.aviso;
     warning.textContent = payload.aviso || "";
+    renderAssistenteEstudos(payload.assistente_estudos);
     updateDetails(payload);
 
     const historyEntry = {
       name: payload.nome_arquivo,
       dimensions: `${payload.dimensoes.largura} × ${payload.dimensoes.altura}`,
       status: payload.ocr_disponivel ? "OCR OK" : "PROCESSADO",
-      date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+      date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+      assistente: payload.assistente_estudos || {}
     };
 
     const existingEntries = JSON.parse(localStorage.getItem("process-history") || "[]");
     existingEntries.unshift(historyEntry);
     localStorage.setItem("process-history", JSON.stringify(existingEntries.slice(0, 8)));
     renderHistory(JSON.parse(localStorage.getItem("process-history") || "[]"));
+    renderHistoricMenu();
 
     activateResultTab("resumo");
     document.querySelector("#result-panel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -298,3 +397,5 @@ fetch("/api/health")
     status.previousElementSibling.classList.toggle("offline", !data.ocr_disponivel);
   })
   .catch(() => { document.querySelector("#backend-status").textContent = "API desconectada"; });
+
+renderHistoricMenu();
