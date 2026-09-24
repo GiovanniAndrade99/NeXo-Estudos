@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Imagem em foco — Laboratório de estudos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Nexo Estudos, início"><span class="brand-mark">◫</span><span>nexo<span class="brand-light">.estudos</span></span></a>
+      <div class="workspace-label">LABORATÓRIO</div>
+
+      <nav class="nav-list" aria-label="Navegação principal">
+        <div class="nav-group">
+          <div class="nav-group-label">Principal</div>
+          <button class="nav-item active" type="button" data-screen="processamento"><span>◉</span> Processamento</button>
+          <button class="nav-item" type="button" data-screen="etapas"><span>⌘</span> Etapas da análise</button>
+          <button class="nav-item" type="button" data-screen="fundamentos"><span>▦</span> Fundamentos</button>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">Conta</div>
+          <button class="nav-item" type="button" data-screen="perfil"><span>◍</span> Perfil</button>
+          <button class="nav-item" type="button" data-screen="configuracoes"><span>⚙</span> Configurações</button>
+          <button class="nav-item" type="button" data-screen="sobre"><span>◌</span> Sobre</button>
+        </div>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="course-card"><span class="course-icon">✳</span><div><strong>Visão computacional</strong><small>Projeto de estudos</small></div></div>
+        <div class="profile"><div class="avatar">ES</div><div><strong>Espaço de estudo</strong><small>Experimento local</small></div><span class="more">···</span></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <section class="screen active" data-screen-content="processamento">
+        <header class="topbar">
+          <div class="breadcrumbs">Laboratório <span>/</span> <strong>Processamento de imagens</strong></div>
+          <div class="topbar-right"><span class="status-dot"></span><span id="backend-status">Verificando serviço</span><button class="help-button" title="Projeto demonstrativo">?</button></div>
+        </header>
+
+        <section class="page-heading">
+          <div class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTA DE ESTUDO</div>
+          <h1>Imagem em <span>foco.</span></h1>
+          <p>Prepare uma página para leitura automática. Veja como cada etapa transforma a imagem e ajuda a recuperar o texto.</p>
+        </section>
+
+        <section class="workspace-grid" aria-label="Área de processamento">
+          <div class="upload-panel panel">
+            <div class="panel-heading"><div><span class="step-tag">01 / ENTRADA</span><h2>Escolha uma imagem</h2></div><span class="panel-glyph">↗</span></div>
+            <label class="dropzone" id="dropzone" for="image-input" tabindex="0">
+              <input id="image-input" type="file" accept="image/png,image/jpeg,image/bmp,image/tiff,image/webp" multiple>
+              <span class="upload-icon">↑</span>
+              <strong>Arraste sua página até aqui</strong>
+              <span class="drop-copy">ou <span>procure no dispositivo</span></span>
+              <small>PNG, JPG, BMP, TIFF ou WEBP · até 12 MB cada · máximo 2 imagens</small>
+            </label>
+            <div id="uploaded-summary" class="summary-box" aria-live="polite">
+              <div class="summary-header"><span>Resumo das imagens</span><strong id="selected-count">0 selecionadas</strong></div>
+              <ul id="uploaded-files-summary" class="summary-list">
+                <li>Nenhuma imagem selecionada.</li>
+              </ul>
+            </div>
+            <div class="privacy-note"><span>◈</span> A imagem é processada pelo servidor deste projeto.</div>
+            <button id="process-button" class="primary-button" disabled><span>Processar imagem</span><span>→</span></button>
+            <p id="error-message" class="error-message" role="alert" hidden></p>
+          </div>
+
+          <div class="result-panel panel" id="result-panel">
+            <div class="panel-heading"><div><span class="step-tag">02 / RESULTADO</span><h2>Leitura da página</h2></div><span class="result-badge" id="result-badge">AGUARDANDO IMAGEM</span></div>
+            <div id="empty-result" class="empty-result"><div class="empty-illustration"><span class="sheet sheet-back"></span><span class="sheet sheet-front"><i></i><i></i><i></i><b>✳</b></span></div><strong>Sua análise aparecerá aqui</strong><span>Envie uma imagem para iniciar o processamento.</span></div>
+            <div id="result-content" hidden>
+              <div class="stats-row"><div><span>ARQUIVO</span><strong id="file-name">—</strong></div><div><span>DIMENSÕES</span><strong id="image-dimensions">—</strong></div><div><span>ALINHAMENTO</span><strong id="rotation-value">—</strong></div></div>
+
+              <div class="result-tabs" aria-label="Abas do resultado">
+                <button class="result-tab active" type="button" data-result-tab="resumo">Resumo</button>
+                <button class="result-tab" type="button" data-result-tab="historico">Histórico</button>
+                <button class="result-tab" type="button" data-result-tab="detalhes">Detalhes</button>
+                <button class="result-tab" type="button" data-result-tab="antes-depois">Antes e depois</button>
+              </div>
+
+              <div class="result-tab-panel active" data-result-panel="resumo">
+                <div class="image-comparison">
+                  <figure><div class="image-frame"><img id="original-image" alt="Imagem original enviada"></div><figcaption><span class="legend-dot neutral"></span> Original</figcaption></figure>
+                  <figure><div class="image-frame processed-frame"><img id="processed-image" alt="Imagem após o processamento"></div><figcaption><span class="legend-dot accent"></span> Pré-processada</figcaption></figure>
+                </div>
+                <div class="manual-adjustments" aria-label="Ajustes manuais da imagem processada">
+                  <div class="adjustments-heading"><div><span class="step-tag">AJUSTE MANUAL</span><h3>Refine o resultado</h3></div><button id="reset-adjustments" class="copy-button" type="button">Redefinir</button></div>
+                  <div class="adjustments-grid">
+                    <label><span>Brilho <output id="brightness-value">100%</output></span><input id="brightness-control" type="range" min="50" max="160" value="100"></label>
+                    <label><span>Contraste <output id="contrast-value">100%</output></span><input id="contrast-control" type="range" min="50" max="180" value="100"></label>
+                    <label><span>Saturação <output id="saturation-value">100%</output></span><input id="saturation-control" type="range" min="0" max="180" value="100"></label>
+                    <label><span>Rotação <output id="rotation-adjustment-value">0°</output></span><input id="rotation-control" type="range" min="-15" max="15" value="0"></label>
+                  </div>
+                  <button id="save-image-button" class="primary-button save-button" type="button" disabled><span>Salvar imagem processada</span><span>↓</span></button>
+                </div>
+                <div id="ocr-warning" class="warning-box" hidden></div>
+                <div class="ocr-heading"><div><span class="step-tag">03 / RECONHECIMENTO</span><h3>Texto identificado</h3></div><button id="copy-button" class="copy-button" disabled>Copiar texto <span>▢</span></button></div>
+                <pre id="recognized-text" class="recognized-text">O texto reconhecido será exibido aqui.</pre>
+              </div>
+
+              <div class="result-tab-panel" data-result-panel="historico">
+                <div class="panel-subtitle">Histórico de imagens processadas</div>
+                <div id="history-list" class="history-list"></div>
+              </div>
+
+              <div class="result-tab-panel" data-result-panel="detalhes">
+                <div class="panel-subtitle">Detalhes técnicos</div>
+                <div class="detail-grid">
+                  <div class="detail-box"><span>Pixels</span><strong id="detail-pixels">—</strong></div>
+                  <div class="detail-box"><span>Tipo de PDF</span><strong id="detail-pdf-type">—</strong></div>
+                  <div class="detail-box"><span>Matéria</span><strong id="detail-material">—</strong></div>
+                  <div class="detail-box"><span>Qualidade</span><strong id="detail-quality">—</strong></div>
+                  <div class="detail-box"><span>Cores utilizadas</span><strong id="detail-colors">—</strong></div>
+                  <div class="detail-box"><span>Formato</span><strong id="detail-format">—</strong></div>
+                </div>
+              </div>
+
+              <div class="result-tab-panel" data-result-panel="antes-depois">
+                <div class="panel-subtitle">Comparação antes e depois</div>
+                <div class="image-comparison compact-comparison">
+                  <figure><div class="image-frame"><img id="before-image" alt="Imagem original antes do processamento"></div><figcaption><span class="legend-dot neutral"></span> Antes</figcaption></figure>
+                  <figure><div class="image-frame processed-frame"><img id="after-image" alt="Imagem após o processamento"></div><figcaption><span class="legend-dot accent"></span> Depois</figcaption></figure>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="screen" data-screen-content="etapas">
+        <div class="screen-header">
+          <span class="step-tag">COMO A IMAGEM É TRATADA</span>
+          <h2>Três etapas. Uma página mais legível.</h2>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-card">
+            <span class="step-number">02</span>
+            <div class="step-symbol blue">◐</div>
+            <h3>Tons de cinza</h3>
+            <p>Reduz os canais de cor a uma escala de intensidade, simplificando a análise e a separação textual.</p>
+            <span class="step-foot">CONVERSÃO DE COR</span>
+          </article>
+
+          <article class="step-card">
+            <span class="step-number">03</span>
+            <div class="step-symbol lilac">◒</div>
+            <h3>Contraste e ruído</h3>
+            <p>CLAHE realça diferenças locais; o filtro mediano suaviza ruídos pontuais para melhorar a legibilidade.</p>
+            <span class="step-foot">CLAHE + MEDIANA</span>
+          </article>
+
+          <article class="step-card">
+            <span class="step-number">04</span>
+            <div class="step-symbol orange">⤾</div>
+            <h3>Correção de ângulo</h3>
+            <p>Estima a inclinação dos traços e gira a página para alinhar as linhas e reduzir erros de leitura.</p>
+            <span class="step-foot">ALINHAMENTO</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="fundamentos">
+        <div class="screen-header theory-box">
+          <div class="theory-mark">✳</div>
+          <div>
+            <span class="step-tag">FUNDAMENTO</span>
+            <h2>Pixels guardam pistas.</h2>
+          </div>
+        </div>
+
+        <div class="info-card large">
+          <p>Uma imagem digital é composta por pixels organizados em linhas e colunas. Cada pixel representa uma intensidade de luz, e o processamento da imagem busca tornar essas intensidades mais úteis para a análise visual e o reconhecimento de caracteres.</p>
+          <p>Em documentos, o texto pode ficar apagado, torto, com ruído de fundo ou com baixa qualidade de contraste. Por isso, técnicas como conversão para escala de cinza, equalização de contraste, redução de ruído, binarização e correção de inclinação são essenciais para melhorar a legibilidade antes do OCR.</p>
+          <a href="/docs" target="_blank" rel="noreferrer">Explorar API <span>↗</span></a>
+        </div>
+
+        <div class="topic-grid">
+          <article class="topic-card">
+            <span class="topic-tag">01</span>
+            <h3>Imagem digital</h3>
+            <p>Representa a cena por matrizes de pixels, onde cada elemento possui intensidade e cor. Esse formato permite aplicar algoritmos computacionais para extrair informações.</p>
+          </article>
+          <article class="topic-card">
+            <span class="topic-tag">02</span>
+            <h3>Escala de cinza</h3>
+            <p>Reduz a informação colorida para intensidade luminosa, simplificando a análise e reduzindo variações que não ajudam no reconhecimento do texto.</p>
+          </article>
+          <article class="topic-card">
+            <span class="topic-tag">03</span>
+            <h3>Contraste e ruído</h3>
+            <p>O CLAHE aumenta a diferença entre regiões escuras e claras, enquanto filtros de suavização removem detalhes pontuais indesejados que dificultam a leitura.</p>
+          </article>
+          <article class="topic-card">
+            <span class="topic-tag">04</span>
+            <h3>Binarização</h3>
+            <p>Converte a imagem em preto e branco, separando melhor os traços do texto do fundo. Isso melhora a precisão do reconhecimento por OCR.</p>
+          </article>
+          <article class="topic-card">
+            <span class="topic-tag">05</span>
+            <h3>Correção de inclinação</h3>
+            <p>Quando a página está torta, o texto pode ficar distorcido. A correção angular ajuda a alinhar as linhas, melhorando o reconhecimento automático.</p>
+          </article>
+          <article class="topic-card">
+            <span class="topic-tag">06</span>
+            <h3>OCR</h3>
+            <p>O reconhecimento óptico de caracteres interpreta formas e tenta converter as letras em texto legível. A qualidade da imagem diretamente influencia o resultado final.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="perfil">
+        <div class="screen-header">
+          <span class="step-tag">CONTA</span>
+          <h2>Perfil do projeto</h2>
+        </div>
+
+        <div class="profile-layout">
+          <div class="info-card profile-panel">
+            <div class="profile-header">
+              <div class="avatar large">ES</div>
+              <div>
+                <h3>Estudante</h3>
+                <p>Projeto acadêmico de processamento de imagens</p>
+              </div>
+            </div>
+            <ul class="detail-list">
+              <li><span>Aluno</span><strong>Nome do aluno</strong></li>
+              <li><span>Curso</span><strong>Processamento Digital de Imagens</strong></li>
+              <li><span>Disciplina</span><strong>Visão Computacional / OCR</strong></li>
+              <li><span>Objetivo</span><strong>Extrair texto de imagens e documentos</strong></li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <h3>Descrição do papel</h3>
+            <p>Este projeto representa a aplicação prática de conceitos de visão computacional e reconhecimento de caracteres em uma interface simples, com foco em estudo, análise e demonstração técnica.</p>
+            <p>O sistema foi desenvolvido para mostrar como uma imagem pode ser preparara e convertida em texto acessível por meio de algoritmos de pré-processamento, alinhamento e OCR.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="configuracoes">
+        <div class="screen-header">
+          <span class="step-tag">AJUSTES</span>
+          <h2>Configurações do processo</h2>
+        </div>
+
+        <div class="settings-grid">
+          <div class="info-card">
+            <h3>Visão e processamento</h3>
+            <div class="setting-row"><span>Modo de leitura</span><strong>Documentos e páginas</strong></div>
+            <div class="setting-row"><span>Tema</span><strong>Escuro</strong></div>
+            <div class="setting-row"><span>Contraste</span><strong>Melhorado por CLAHE</strong></div>
+            <div class="setting-row"><span>Suavização</span><strong>Filtro mediano</strong></div>
+          </div>
+
+          <div class="info-card">
+            <h3>OCR e saída</h3>
+            <div class="setting-row"><span>Idiomas</span><strong>Português + Inglês</strong></div>
+            <div class="setting-row"><span>Qualidade</span><strong>Auto</strong></div>
+            <div class="setting-row"><span>Correção</span><strong>Inclinação automática</strong></div>
+            <div class="setting-row"><span>Resultado</span><strong>Texto em tela e cópia</strong></div>
+          </div>
+        </div>
+
+        <div class="info-card large margin-top">
+          <h3>Como o sistema foi pensado</h3>
+          <p>As configurações são direcionadas para documentos que precisam de uma leitura mais confiável, como páginas de estudo, formulários, textos impressos e materiais com baixa qualidade visual. O objetivo é melhorar a retenção dos caracteres e reduzir falhas no OCR.</p>
+          <p>Quando a imagem entra com boa nitidez, a etapa de pré-processamento torna os contornos mais definidos e aumenta a chance de identificar corretamente as letras, palavras e frases.</p>
+        </div>
+      </section>
+
+      <section class="screen" data-screen-content="sobre">
+        <div class="screen-header">
+          <span class="step-tag">INFORMAÇÕES</span>
+          <h2>Sobre o projeto</h2>
+        </div>
+
+        <div class="info-card large">
+          <p>Este projeto foi desenvolvido para demonstrar a aplicação de processamento digital de imagens na extração de texto a partir de documentos e imagens com diferentes níveis de qualidade visual. A proposta combina fundamentos de visão computacional, tratamento de pixels e reconhecimento óptico de caracteres para transformar uma imagem em informação legível e útil.</p>
+          <p>O sistema utiliza Python, OpenCV e Tesseract para executar um pipeline completo de análise: validação da imagem, conversão para tons de cinza, ajuste de contraste, correção de inclinação, binarização e reconhecimento do texto. O objetivo é apresentar de forma didática como cada etapa influencia diretamente a qualidade final da leitura automatizada.</p>
+        </div>
+
+        <div class="info-card large margin-top">
+          <h3>Objetivos do trabalho</h3>
+          <ul class="feature-list">
+            <li>Aplicar conceitos de processamento digital de imagens em um cenário prático e realista.</li>
+            <li>Melhorar a qualidade visual de documentos antes da etapa de reconhecimento.</li>
+            <li>Extrair texto automaticamente e disponibilizar o resultado em uma interface simples.</li>
+            <li>Demonstrar o funcionamento de OCR e o impacto das etapas de pré-processamento no resultado final.</li>
+          </ul>
+        </div>
+
+        <div class="info-card large margin-top">
+          <h3>Aplicações reais</h3>
+          <ul class="feature-list">
+            <li>Leitura de documentos escolares, apostilas e materiais impressos.</li>
+            <li>Digitalização de páginas com baixa qualidade visual.</li>
+            <li>Extração de texto em imagens com ruído, sombras ou distorções leves.</li>
+            <li>Automação de tarefas relacionadas a arquivos físicos e digitais.</li>
+          </ul>
+        </div>
+
+        <div class="info-card large margin-top">
+          <h3>Bibliografia sugerida</h3>
+          <ul class="feature-list">
+            <li>OpenCV Documentation — processamento de imagem, filtros e transformação geométrica.</li>
+            <li>Tesseract OCR Documentation — reconhecimento óptico de caracteres.</li>
+            <li>GONZALEZ, Rafael C.; WOODS, Richard E. — Processamento Digital de Imagens.</li>
+            <li>Materiais acadêmicos sobre visão computacional e OCR aplicado a documentos.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
