@@ -240,8 +240,8 @@
             <span class="step-number">03</span>
             <div class="step-symbol lilac">◒</div>
             <h3>Contraste e ruído</h3>
-            <p>CLAHE realça diferenças locais; o filtro mediano suaviza ruídos pontuais para melhorar a legibilidade.</p>
-            <span class="step-foot">CLAHE + MEDIANA</span>
+            <p>Divide a imagem pelo próprio fundo para apagar sombras e luz desigual; o filtro mediano suaviza ruídos pontuais.</p>
+            <span class="step-foot">ILUMINAÇÃO + MEDIANA</span>
           </article>
 
           <article class="step-card">
@@ -286,10 +286,10 @@
             <p>Reduz a informação colorida para intensidade luminosa, simplificando a análise e reduzindo variações que não ajudam no reconhecimento do texto.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/03-contraste-ruido.webp" alt="Trecho da página antes e depois do CLAHE e do filtro mediano" loading="lazy" width="726" height="400"><figcaption>antes → CLAHE + mediana</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/fundamentos/03-contraste-ruido.webp" alt="Trecho da página com sombra antes e depois da normalização de iluminação e do filtro mediano" loading="lazy" width="726" height="400"><figcaption>sombra → luz uniforme</figcaption></figure>
             <span class="topic-tag">03</span>
             <h3>Contraste e ruído</h3>
-            <p>O CLAHE aumenta a diferença entre regiões escuras e claras, enquanto filtros de suavização removem detalhes pontuais indesejados que dificultam a leitura.</p>
+            <p>A normalização de iluminação estima o fundo do papel e divide a imagem por ele, removendo sombras e deixando o contraste uniforme; o filtro mediano remove detalhes pontuais que dificultam a leitura.</p>
           </article>
           <article class="topic-card" data-reveal>
             <figure class="topic-figure"><img src="/static/fundamentos/04-binarizacao.webp" alt="Página em tons de cinza e o resultado binarizado em preto e branco" loading="lazy" width="726" height="400"><figcaption>antes → binária</figcaption></figure>
@@ -428,7 +428,7 @@
             </div>
             <div class="setting-row"><span>Modo de leitura</span><strong>Documentos e páginas</strong></div>
             <div class="setting-row"><span>Tema</span><strong>Escuro</strong></div>
-            <div class="setting-row"><span>Contraste</span><strong>Melhorado por CLAHE</strong></div>
+            <div class="setting-row"><span>Iluminação</span><strong>Fundo normalizado</strong></div>
             <div class="setting-row"><span>Suavização</span><strong>Filtro mediano</strong></div>
           </article>
 

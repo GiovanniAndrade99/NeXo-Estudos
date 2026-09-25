@@ -707,10 +707,10 @@ const HERO_CODIGO = [
   "# pipeline.py · do pixel ao texto",
   "def processar(imagem):",
   "    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)",
-  "    contraste = cv2.createCLAHE(2.0).apply(cinza)",
-  "    limpa = cv2.medianBlur(contraste, 3)",
-  "    binaria = cv2.adaptiveThreshold(",
-  "        limpa, 255, GAUSS, BINARY, 31, 11)",
+  "    uniforme = normalizar_iluminacao(ampliar(cinza))",
+  "    limpa = cv2.medianBlur(uniforme, 3)",
+  "    _, binaria = cv2.threshold(",
+  "        limpa, 0, 255, BINARY + OTSU)",
   "    alinhada, angulo = corrigir_inclinacao(binaria)",
   "    return pytesseract.image_to_string(",
   "        alinhada, lang=\"por+eng\")"
@@ -718,9 +718,9 @@ const HERO_CODIGO = [
 const HERO_TERMINAL = [
   ["t-cmd", "python -m nexo processar apostila.jpg"],
   ["t-ok", "tons de cinza            0.02s"],
-  ["t-ok", "CLAHE + mediana          0.05s"],
-  ["t-ok", "binarização adaptativa   0.03s"],
-  ["t-ok", "inclinação corrigida    -5.04°"],
+  ["t-ok", "iluminação uniforme      0.05s"],
+  ["t-ok", "binarização (Otsu)       0.03s"],
+  ["t-ok", "inclinação corrigida    -4.90°"],
   ["t-hi", "→ 9 linhas reconhecidas · pronto para estudar"]
 ];
 

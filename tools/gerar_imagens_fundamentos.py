@@ -11,7 +11,9 @@ import pytesseract
 
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
-from backend.processamento import _configurar_tesseract, _corrigir_inclinacao  # noqa: E402
+from backend.processamento import (  # noqa: E402
+    _configurar_tesseract, _corrigir_inclinacao, _normalizar_iluminacao,
+)
 
 SAIDA = RAIZ / "frontend" / "fundamentos"
 SAIDA.mkdir(exist_ok=True)
@@ -56,11 +58,12 @@ pagina[pontos] = rng.integers(40, 120, (pontos.sum(), 1)).astype(np.uint8)
 M = cv2.getRotationMatrix2D((pw / 2, ph / 2), 5, 1.0)
 foto = cv2.warpAffine(pagina, M, (pw, ph), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
-# 2) Pipeline idêntico ao backend.processar
+# 2) Mesmas etapas do backend.processar. A ampliação é omitida: as letras desta página já são
+#    grandes, e manter o tamanho original deixa os recortes das figuras alinhados.
 cinza = cv2.cvtColor(foto, cv2.COLOR_BGR2GRAY)
-contraste = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(cinza)
-sem_ruido = cv2.medianBlur(contraste, 3)
-binaria = cv2.adaptiveThreshold(sem_ruido, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11)
+iluminacao_uniforme = _normalizar_iluminacao(cinza)
+sem_ruido = cv2.medianBlur(iluminacao_uniforme, 3)
+_, binaria = cv2.threshold(sem_ruido, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 alinhada, angulo = _corrigir_inclinacao(binaria)
 print("inclinacao corrigida:", round(angulo, 2))
 
