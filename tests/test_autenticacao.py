@@ -98,6 +98,37 @@ class TestAutenticacao(unittest.TestCase):
         # O link só pode ser usado uma vez.
         self.assertEqual(self.cliente.post("/api/auth/reset", json={"token": token, "password": "outra-senha-789"}).status_code, 400)
 
+    def trocar_senha(self, atual, nova):
+        return self.cliente.post("/api/auth/password", json={"current_password": atual, "password": nova})
+
+    def test_trocar_senha(self):
+        self.assertEqual(self.trocar_senha(SENHA, "nova-senha-456").status_code, 401)
+        self.entrar()
+        errada = self.trocar_senha("errada", "nova-senha-456")
+        self.assertEqual(errada.status_code, 400)
+        self.assertIn("atual", errada.json()["detail"])
+        self.assertEqual(self.trocar_senha(SENHA, "curta").status_code, 400)
+        self.assertEqual(self.trocar_senha(SENHA, SENHA).status_code, 400)
+        self.assertEqual(self.trocar_senha(SENHA, "nova-senha-456").status_code, 200)
+        self.cliente.get("/auth/logout")
+        self.assertEqual(self.entrar().status_code, 401)
+        self.assertEqual(self.entrar(senha="nova-senha-456").status_code, 200)
+
+    def test_trocar_senha_bloqueia_apos_tentativas(self):
+        self.entrar()
+        for _ in range(4):
+            self.assertEqual(self.trocar_senha("errada", "nova-senha-456").status_code, 400)
+        self.assertEqual(self.trocar_senha("errada", "nova-senha-456").status_code, 429)
+        self.assertEqual(self.trocar_senha(SENHA, "nova-senha-456").status_code, 429)
+
+    def test_me_traz_dados_da_conta(self):
+        self.assertFalse(self.cliente.get("/api/auth/me").json()["authenticated"])
+        self.entrar()
+        dados = self.cliente.get("/api/auth/me").json()
+        self.assertEqual(dados["user"]["role"], "admin")
+        self.assertIsNotNone(dados["account"]["created_at"])
+        self.assertGreater(dados["account"]["session_expires_at"], time.time())
+
     def test_sessao_curta_e_longa(self):
         self.entrar()
         agora = time.time()

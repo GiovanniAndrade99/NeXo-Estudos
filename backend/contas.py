@@ -145,6 +145,19 @@ class RepositorioContas:
         senha_ok = verificar_senha(senha, linha["senha_hash"] if linha else _HASH_FALSO)
         return self._publico(linha) if linha and senha_ok else None
 
+    def alterar_senha(self, email: str, senha_atual: str, senha_nova: str) -> bool:
+        """Troca a senha de quem está logado. Devolve False se a senha atual não confere."""
+        validar_senha_nova(senha_nova)
+        if not self.autenticar(email, senha_atual):
+            return False
+        if senha_nova == senha_atual:
+            raise ErroConta("A nova senha precisa ser diferente da atual.")
+        with self._conectar() as banco:
+            banco.execute("UPDATE usuarios SET senha_hash = ? WHERE email = ?", (gerar_hash_senha(senha_nova), normalizar_email(email)))
+            # Links de recuperação pendentes deixam de valer depois da troca.
+            banco.execute("DELETE FROM tokens_senha WHERE usuario_id = (SELECT id FROM usuarios WHERE email = ?)", (normalizar_email(email),))
+        return True
+
     def criar_token_recuperacao(self, email: str) -> str | None:
         linha = self.buscar_por_email(email)
         if not linha:

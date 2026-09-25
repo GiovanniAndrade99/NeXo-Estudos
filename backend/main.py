@@ -134,7 +134,13 @@ def status_autenticacao():
 @app.get("/api/auth/me")
 def usuario_atual(request: Request):
     usuario = usuario_da_sessao(request)
-    return {"authenticated": bool(usuario), "user": usuario}
+    if not usuario:
+        return {"authenticated": False, "user": None}
+    conta = {"session_expires_at": request.session.get("expira_em")}
+    if usuario.get("provider") == "senha":
+        linha = contas.buscar_por_email(usuario.get("email", ""))
+        conta["created_at"] = linha["criado_em"] if linha else None
+    return {"authenticated": True, "user": usuario, "account": conta}
 
 
 class DadosLogin(BaseModel):
@@ -146,6 +152,11 @@ class DadosLogin(BaseModel):
 class DadosCadastro(BaseModel):
     name: str
     email: str
+    password: str
+
+
+class DadosTrocaSenha(BaseModel):
+    current_password: str
     password: str
 
 
@@ -194,6 +205,32 @@ def cadastrar(request: Request, dados: DadosCadastro):
         raise HTTPException(400, str(erro)) from erro
     iniciar_sessao(request, usuario)
     return {"authenticated": True, "user": usuario}
+
+
+@app.post("/api/auth/password")
+def trocar_senha(request: Request, dados: DadosTrocaSenha):
+    # /api/auth/ é público no middleware, então a sessão é conferida aqui.
+    usuario = usuario_da_sessao(request)
+    if not usuario:
+        raise HTTPException(401, "Faça login para continuar.")
+    if usuario.get("provider") != "senha":
+        raise HTTPException(400, "Esta conta entra por um provedor externo e não tem senha própria.")
+    chaves = (f"ip:{_ip(request)}", f"email:{normalizar_email(usuario['email'])}")
+    bloqueio = limite_login.segundos_bloqueado(*chaves)
+    if bloqueio:
+        return JSONResponse({"detail": _mensagem_bloqueio(bloqueio), "retry_after": bloqueio}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    try:
+        trocou = contas.alterar_senha(usuario["email"], dados.current_password, dados.password)
+    except ErroConta as erro:
+        raise HTTPException(400, str(erro)) from erro
+    if not trocou:
+        restantes = limite_login.registrar_falha(*chaves)
+        if restantes == 0:
+            bloqueio = limite_login.segundos_bloqueado(*chaves)
+            return JSONResponse({"detail": _mensagem_bloqueio(bloqueio), "retry_after": bloqueio}, status_code=429, headers={"Retry-After": str(bloqueio)})
+        return JSONResponse({"detail": "A senha atual está incorreta."}, status_code=400)
+    limite_login.limpar(*chaves)
+    return {"detail": "Senha alterada com sucesso."}
 
 
 @app.post("/api/auth/forgot")
