@@ -32,25 +32,37 @@ O backend confere a quantidade, o formato e o tamanho dos arquivos. Arquivos vaz
 
 Quando o arquivo é PDF, o PyMuPDF abre o documento e converte cada página em uma imagem. PDFs protegidos por senha, vazios ou com mais de 10 páginas são recusados. Depois da conversão, cada página segue individualmente pelas mesmas etapas de processamento de uma imagem enviada diretamente.
 
-### 4. Conversão para tons de cinza
+As etapas 4 a 8 foram ajustadas e validadas com o dataset público FUNSD; a metodologia e os resultados estão em [AVALIACAO.md](AVALIACAO.md).
+
+### 4. Conversão para tons de cinza e ampliação
 
 O OpenCV converte a imagem colorida para uma matriz de intensidades em tons de cinza. Isso reduz a informação a analisar e deixa o texto mais fácil de tratar sem depender das cores originais.
 
-### 5. Ajuste local de contraste
+Em seguida, imagens cujo maior lado tem menos de 2000 pixels são ampliadas até 2 vezes, com interpolação bicúbica. O Tesseract erra muito quando as letras têm poucos pixels de altura; na avaliação, a ampliação foi a mudança de maior impacto no acerto do OCR.
 
-O CLAHE (Contrast Limited Adaptive Histogram Equalization) ajusta o contraste em pequenas regiões da imagem. Esse ajuste pode destacar letras em páginas com iluminação ou fundo irregulares sem aumentar o contraste de toda a página de uma só vez.
+### 5. Normalização de iluminação
+
+Fotos de páginas costumam ter sombras e luz desigual: um canto fica mais escuro que o outro. Para corrigir isso, o sistema estima o fundo da página (o papel sem o texto) e divide a imagem por ele:
+
+1. uma dilatação 7 × 7 "apaga" as letras, que são mais escuras que o papel;
+2. um filtro mediano 31 × 31 suaviza o resultado, gerando uma estimativa da iluminação de cada região;
+3. a imagem original é dividida por essa estimativa.
+
+O resultado é um fundo uniforme, com as letras preservadas. Essa etapa substituiu o CLAHE (equalização adaptativa de histograma) usado nas primeiras versões, que realçava também o ruído do fundo.
 
 ### 6. Redução de ruído
 
 Um filtro mediano de tamanho 3 × 3 reduz pequenos pontos e imperfeições. A intenção é limpar o fundo preservando bordas, como os contornos das letras.
 
-### 7. Binarização adaptativa
+### 7. Binarização (método de Otsu)
 
-O limiar adaptativo gaussiano transforma a imagem em preto e branco. Como o limiar é calculado localmente, ele pode lidar melhor com variações de iluminação do que um único limiar global. Essa imagem binária serve de entrada para o alinhamento e o OCR.
+O método de Otsu escolhe automaticamente o limiar que melhor separa as intensidades da imagem em dois grupos (tinta e papel) e transforma a imagem em preto e branco. Um limiar global funciona bem aqui porque a etapa 5 já deixou a iluminação uniforme. Essa imagem binária serve de entrada para o alinhamento e o OCR.
 
 ### 8. Correção de inclinação
 
-O sistema identifica componentes conectados que provavelmente correspondem à tinta e estima a orientação predominante. Se o ângulo estiver dentro do intervalo aceito pelo código (até 15 graus), a imagem é rotacionada para alinhar as linhas. A correção estimada, em graus, também é incluída no resultado.
+O sistema mede o ângulo do texto pelo **perfil de projeção horizontal**: para cada ângulo testado (de −15° a 15°, primeiro de 1 em 1 grau e depois de 0,1 em 0,1 grau perto do melhor), a imagem é girada e a tinta de cada linha de pixels é somada. Quando o texto está alinhado, linhas de texto e entrelinhas alternam entre somas altas e baixas, e a variância dessas somas é máxima. Esse critério quase não é afetado por bordas, linhas de formulário ou sujeira.
+
+Se a inclinação medida for de pelo menos 0,2°, a imagem é rotacionada para alinhar as linhas. A correção estimada, em graus, também é incluída no resultado.
 
 ### 9. Reconhecimento óptico de caracteres (OCR)
 
@@ -71,7 +83,7 @@ O backend mede o tempo gasto no processamento de cada imagem/página e monta uma
 A integração com a disciplina é o **Assistente de Estudos**: o resultado do processamento da imagem vira material de entrada para uma funcionalidade que organiza o conteúdo para revisão. A visão computacional e o OCR fazem a ponte entre o material visual e o assistente. O pipeline integrado é:
 
 1. **Entrada:** imagem ou página de PDF com material de estudo.
-2. **Preparação:** conversão para cinza, contraste, redução de ruído, binarização e alinhamento.
+2. **Preparação:** conversão para cinza, ampliação, normalização de iluminação, redução de ruído, binarização e alinhamento.
 3. **Extração de conteúdo:** o Tesseract OCR reconhece o texto em português e inglês.
 4. **Preparação para o assistente:** o backend limpa e normaliza o texto para comparar termos sem diferença de maiúsculas ou acentos.
 5. **Análise e identificação do tema:** o Assistente de Estudos compara o texto com palavras-chave de disciplinas e ordena os temas por correspondências encontradas.
@@ -82,13 +94,24 @@ Na implementação atual, a análise do Assistente de Estudos usa regras e conte
 
 ## Dataset e recursos externos
 
-O código atual não carrega um conjunto de imagens rotuladas para treinamento ou avaliação e não declara um dataset externo. Portanto, para a versão atual, a documentação correta é: **não foi utilizado dataset próprio/de treinamento**.
+### Dataset utilizado: FUNSD
 
-Os arquivos `por.traineddata` e `eng.traineddata` citados no README são modelos de idioma do Tesseract usados para OCR; não são o dataset de treinamento do classificador temático do projeto. A origem recomendada desses arquivos é o repositório oficial [tesseract-ocr/tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast).
+- **FUNSD — Form Understanding in Noisy Scanned Documents:** <https://guillaumejaume.github.io/FUNSD/>
+- Download direto: <https://guillaumejaume.github.io/FUNSD/dataset.zip>
+- Licença (uso não comercial, de pesquisa e educacional): <https://guillaumejaume.github.io/FUNSD/work/>
+
+O FUNSD reúne 199 formulários reais digitalizados, com o texto de cada palavra anotado manualmente. O projeto o usa para **ajustar e avaliar** o pipeline de processamento de imagens: as 149 imagens de treino serviram para escolher os parâmetros, e as 50 de teste medem o ganho do pré-processamento no OCR, comparando o texto reconhecido com o anotado. O processo e os resultados estão em [AVALIACAO.md](AVALIACAO.md). No conjunto de teste, o pipeline elevou o F1 das palavras reconhecidas de 61,3% para 72,1% nos scans e de 32,4% para 67,6% em fotos simuladas.
+
+O projeto **não treina** um modelo próprio: o FUNSD é usado como conjunto de validação do pré-processamento. O dataset não é redistribuído no repositório; o script `tools/avaliar_ocr.py` o baixa da fonte oficial.
+
+### Modelos de idioma do OCR
+
+Os arquivos `por.traineddata` e `eng.traineddata` citados no README são modelos de idioma do Tesseract já treinados pelos autores do Tesseract e usados para o OCR. A origem recomendada desses arquivos é o repositório oficial [tesseract-ocr/tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast).
 
 ## Componentes relacionados
 
 - `backend/main.py`: endpoints, validação de upload, conversão de PDF, medição de tempo e resposta da API.
 - `backend/processamento.py`: pré-processamento, correção de inclinação, OCR e regras do assistente de estudos.
 - `frontend/`: interface de envio e apresentação dos resultados.
+- `tools/avaliar_ocr.py`: avaliação do pipeline com o dataset FUNSD.
 - `requirements.txt`: dependências Python. O executável Tesseract e seus modelos de idioma são requisitos externos instalados separadamente.

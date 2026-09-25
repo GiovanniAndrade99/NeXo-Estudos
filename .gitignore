@@ -7,3 +7,6 @@ venv/
 .vscode/
 .tessdata/
 contas.db
+
+# Datasets baixados por tools/avaliar_ocr.py (não redistribuir; ver docs/AVALIACAO.md)
+datasets/

@@ -15,7 +15,18 @@ Aplicacao academica de processamento digital de imagens e reconhecimento optico 
 
 ## Funcionamento e pipeline
 
-A documentação detalhada do funcionamento, das etapas de processamento de imagens e da integração com IA está em [docs/PIPELINE.md](docs/PIPELINE.md). Ela também esclarece o papel do OCR, das regras de classificação temática e a situação do dataset: a versão atual não utiliza dataset próprio de treinamento.
+A documentação detalhada do funcionamento, das etapas de processamento de imagens e da integração com IA está em [docs/PIPELINE.md](docs/PIPELINE.md). Ela também esclarece o papel do OCR e das regras de classificação temática.
+
+## Dataset e avaliação
+
+O pipeline de processamento de imagens foi ajustado e avaliado com o dataset público **FUNSD** (formulários digitalizados com o texto anotado manualmente): <https://guillaumejaume.github.io/FUNSD/>. O projeto não treina modelo próprio; o FUNSD é usado para medir o ganho do pré-processamento no OCR.
+
+| Condição (50 imagens de teste) | Sem pré-processamento | Com o pipeline |
+|---|---|---|
+| Scan original | 61,3% | **72,1%** |
+| Foto simulada (sombra, ruído e inclinação) | 32,4% | **67,6%** |
+
+*F1 das palavras reconhecidas pelo OCR em relação ao texto anotado.* Metodologia, resultados por imagem e instruções para reproduzir: [docs/AVALIACAO.md](docs/AVALIACAO.md).
 
 ## Requisitos
 
@@ -84,14 +95,24 @@ Salve as capturas da interface em `docs/screenshots/` e atualize esta secao com 
 ```text
 backend/
   main.py             # API FastAPI, conversao de PDF e servidor do frontend
+  contas.py           # contas, login e recuperacao de senha
   processamento.py    # processamento de imagem e OCR
 frontend/
   index.html
   app.js
   style.css
+  fundamentos/        # imagens de exemplo da aba Fundamentos
+docs/
+  PIPELINE.md         # funcionamento, pipeline e integracao com IA
+  AVALIACAO.md        # avaliacao com o dataset FUNSD
+  avaliacao/          # resultados por imagem e figura de exemplo
+tools/
+  avaliar_ocr.py                # avaliacao do pipeline com o FUNSD
+  gerar_imagens_fundamentos.py  # gera as imagens da aba Fundamentos
 tests/
   test_assistente_estudos.py
   test_autenticacao.py
+  test_processamento.py
 requirements.txt
 README.md
 ```
