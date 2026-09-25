@@ -331,23 +331,58 @@ def decodificar_imagem(conteudo: bytes) -> np.ndarray:
     return imagem
 
 
+INCLINACAO_MAXIMA = 15.0
+LADO_MINIMO_OCR = 2000
+
+
+def _ampliar_para_ocr(tons_cinza: np.ndarray) -> np.ndarray:
+    """Amplia imagens pequenas: o Tesseract erra muito quando as letras têm poucos pixels de altura."""
+    maior_lado = max(tons_cinza.shape[:2])
+    if maior_lado >= LADO_MINIMO_OCR:
+        return tons_cinza
+    fator = min(2.0, LIMITE_LADO / maior_lado)
+    return cv2.resize(tons_cinza, None, fx=fator, fy=fator, interpolation=cv2.INTER_CUBIC)
+
+
+def _normalizar_iluminacao(tons_cinza: np.ndarray) -> np.ndarray:
+    """Divide a imagem pelo próprio fundo estimado, removendo sombras e luz desigual.
+
+    A dilatação apaga as letras (escuras) e o mediano grande suaviza o que sobra:
+    o resultado aproxima o papel sem texto. Dividir por ele deixa o fundo uniforme.
+    """
+    fundo = cv2.medianBlur(cv2.dilate(tons_cinza, np.ones((7, 7), np.uint8)), 31)
+    return cv2.divide(tons_cinza, fundo, scale=255)
+
+
+def _medir_inclinacao(binaria: np.ndarray) -> float:
+    """Ângulo em que as linhas de texto ficam mais "nítidas" na projeção horizontal.
+
+    Para cada ângulo testado, soma a tinta de cada linha de pixels: com o texto alinhado,
+    linhas de texto e entrelinhas alternam entre somas altas e baixas, e a variância é máxima.
+    Diferente do retângulo mínimo, bordas, linhas de formulário e sujeira quase não pesam.
+    """
+    tinta = 255 - binaria
+    escala = 1000 / max(tinta.shape)
+    if escala < 1:
+        tinta = cv2.resize(tinta, None, fx=escala, fy=escala, interpolation=cv2.INTER_AREA)
+    altura, largura = tinta.shape
+    centro = (largura / 2, altura / 2)
+
+    def nitidez(angulo: float) -> float:
+        matriz = cv2.getRotationMatrix2D(centro, angulo, 1.0)
+        girada = cv2.warpAffine(tinta, matriz, (largura, altura), flags=cv2.INTER_NEAREST, borderValue=0)
+        return float(np.var(girada.sum(axis=1, dtype=np.float64)))
+
+    grosso = max(np.arange(-INCLINACAO_MAXIMA, INCLINACAO_MAXIMA + 0.01, 1.0), key=nitidez)
+    return float(max(np.arange(grosso - 1, grosso + 1.01, 0.1), key=nitidez))
+
+
 def _corrigir_inclinacao(binaria: np.ndarray) -> tuple[np.ndarray, float]:
-    # Pontos soltos de ruído nos cantos fariam o retângulo mínimo cobrir a página toda e medir 0°.
-    _, rotulos, estatisticas, _ = cv2.connectedComponentsWithStats(255 - binaria, connectivity=8)
-    area_minima = max(40, binaria.size / 12000)
-    tinta = np.isin(rotulos, np.flatnonzero(estatisticas[1:, cv2.CC_STAT_AREA] >= area_minima) + 1)
-    pontos = cv2.findNonZero(tinta.astype(np.uint8))
-    if pontos is None or len(pontos) < 20:
+    if cv2.countNonZero(255 - binaria) < 20:
         return binaria, 0.0
-    # O intervalo do ângulo mudou entre versões do OpenCV; normalizar para (-45, 45] cobre ambos.
-    angulo = cv2.minAreaRect(pontos)[-1]
-    if angulo < -45:
-        angulo += 90
-    elif angulo > 45:
-        angulo -= 90
-    if abs(angulo) > 15:
+    correcao = round(_medir_inclinacao(binaria), 2)
+    if abs(correcao) < 0.2:
         return binaria, 0.0
-    correcao = float(angulo)
     altura, largura = binaria.shape[:2]
     matriz = cv2.getRotationMatrix2D((largura / 2, altura / 2), correcao, 1.0)
     alinhada = cv2.warpAffine(
@@ -358,13 +393,12 @@ def _corrigir_inclinacao(binaria: np.ndarray) -> tuple[np.ndarray, float]:
 
 
 def processar(imagem: np.ndarray) -> ResultadoProcessamento:
+    # Parâmetros escolhidos com o conjunto de treino do FUNSD; ver docs/AVALIACAO.md.
     tons_cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
-    contraste = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(tons_cinza)
-    sem_ruido = cv2.medianBlur(contraste, 3)
-    binaria = cv2.adaptiveThreshold(
-        sem_ruido, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 31, 11,
-    )
+    ampliada = _ampliar_para_ocr(tons_cinza)
+    iluminacao_uniforme = _normalizar_iluminacao(ampliada)
+    sem_ruido = cv2.medianBlur(iluminacao_uniforme, 3)
+    _, binaria = cv2.threshold(sem_ruido, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     alinhada, inclinacao = _corrigir_inclinacao(binaria)
     config_dados = _configurar_tesseract()
     disponivel, aviso = tesseract_disponivel()
