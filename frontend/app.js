@@ -56,8 +56,70 @@ fetch("/api/auth/me")
       avatar.textContent = (user.name || "U").slice(0, 2).toUpperCase();
     }
     document.querySelector("#logout-link").hidden = false;
+
+    const nome = user.name || user.email?.split("@")[0] || "estudante";
+    document.querySelector("#hero-user-name").textContent = nome.split(" ")[0];
+    document.querySelector("#profile-name").textContent = nome;
+    document.querySelector("#profile-student").textContent = nome;
+    if (user.email) document.querySelector("#profile-email").textContent = user.email;
+    document.querySelector("#profile-avatar").textContent = nome.slice(0, 2).toUpperCase();
+    preencherConta(user, result.account || {}, nome);
   })
   .catch(() => {});
+
+function preencherConta(user, conta, nome) {
+  const data = (segundos, opcoes) => segundos
+    ? new Date(segundos * 1000).toLocaleString("pt-BR", opcoes)
+    : "—";
+  document.querySelector("#settings-name").textContent = nome;
+  document.querySelector("#settings-email").textContent = user.email || "—";
+  document.querySelector("#settings-avatar").textContent = nome.slice(0, 2).toUpperCase();
+  const papel = document.querySelector("#settings-role");
+  papel.textContent = user.role === "admin" ? "Administrador" : "Usuário";
+  papel.dataset.role = user.role === "admin" ? "admin" : "usuario";
+  const provedores = { senha: "E-mail e senha", google: "Google", github: "GitHub" };
+  document.querySelector("#settings-provider").textContent = provedores[user.provider] || user.provider || "—";
+  document.querySelector("#settings-created").textContent = data(conta.created_at, { day: "2-digit", month: "long", year: "numeric" });
+  document.querySelector("#settings-session").textContent = data(conta.session_expires_at, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  // Contas de provedor externo não têm senha própria para trocar.
+  if (user.provider !== "senha") document.querySelector(".password-card").hidden = true;
+}
+
+const passwordForm = document.querySelector("#password-form");
+passwordForm?.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const mensagem = passwordForm.querySelector(".settings-message");
+  const botao = passwordForm.querySelector("button[type=submit]");
+  const mostrar = (texto, tipo = "error") => {
+    mensagem.textContent = texto;
+    mensagem.dataset.type = tipo;
+    mensagem.hidden = false;
+  };
+  const { current, password, confirm } = passwordForm.elements;
+  if (!current.value || !password.value) return mostrar("Preencha a senha atual e a nova senha.");
+  if (password.value.length < 8) return mostrar("A nova senha precisa ter pelo menos 8 caracteres.");
+  if (password.value !== confirm.value) return mostrar("As novas senhas não conferem.");
+  botao.disabled = true;
+  try {
+    const resposta = await fetch("/api/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: current.value, password: password.value })
+    });
+    const dados = await resposta.json().catch(() => ({}));
+    if (resposta.ok) {
+      passwordForm.reset();
+      mostrar(dados.detail || "Senha alterada com sucesso.", "success");
+    } else {
+      current.value = "";
+      mostrar(typeof dados.detail === "string" ? dados.detail : "Não foi possível alterar a senha agora.");
+    }
+  } catch {
+    mostrar("Não foi possível conectar ao servidor.");
+  } finally {
+    botao.disabled = false;
+  }
+});
 
 function activateScreen(screenName) {
   navItems.forEach((item) => {
@@ -596,14 +658,413 @@ fetch("/api/health")
     status.textContent = data.ocr_disponivel ? "OCR pronto" : "OCR indisponível";
     status.title = data.aviso || "API ativa";
     status.previousElementSibling.classList.toggle("offline", !data.ocr_disponivel);
-    document.querySelector("#support-api-status").textContent = data.status === "ok" ? "Conectada" : "Desconectada";
-    document.querySelector("#support-ocr-status").textContent = data.ocr_disponivel ? "Disponivel" : (data.aviso || "Indisponivel");
   })
   .catch(() => {
     document.querySelector("#backend-status").textContent = "API desconectada";
-    document.querySelector("#support-api-status").textContent = "Desconectada";
-    document.querySelector("#support-ocr-status").textContent = "Indisponivel ate reconectar a API";
   });
 
 renderHistoricMenu();
 refreshHistoryComparison();
+
+// Elementos com data-reveal entram ao aparecer na tela e saem pelo lado em que deixaram a janela.
+const revealItems = document.querySelectorAll("[data-reveal]");
+if ("IntersectionObserver" in window) {
+  revealItems.forEach((item) => {
+    const irmaos = [...item.parentElement.children].filter((el) => el.hasAttribute("data-reveal"));
+    item.dataset.revealColumn = irmaos.length > 1 ? irmaos.indexOf(item) % 3 : 0;
+    item.classList.add("reveal-below");
+  });
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(({ target, isIntersecting, boundingClientRect, rootBounds }) => {
+      if (isIntersecting) {
+        target.style.setProperty("--reveal-delay", `${target.dataset.revealColumn * 90}ms`);
+        target.classList.remove("reveal-below", "reveal-above");
+        return;
+      }
+      // Em aba oculta o retângulo é zerado: volta ao estado inicial para animar de novo ao abrir a aba.
+      const oculto = boundingClientRect.width === 0 && boundingClientRect.height === 0;
+      const saiuPorCima = !oculto && rootBounds && boundingClientRect.bottom < rootBounds.top + rootBounds.height / 2;
+      target.style.setProperty("--reveal-delay", "0ms");
+      target.classList.toggle("reveal-above", Boolean(saiuPorCima));
+      target.classList.toggle("reveal-below", !saiuPorCima);
+    });
+  }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+  revealItems.forEach((item) => revealObserver.observe(item));
+}
+
+document.querySelectorAll("[data-go-screen]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activateScreen(button.dataset.goScreen);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
+// Hero do perfil: digita a função processar() e depois simula a execução no terminal.
+const heroCode = document.querySelector("#hero-code");
+const heroTerminal = document.querySelector("#hero-terminal");
+const heroCursorPos = document.querySelector("#hero-cursor-pos");
+const HERO_CODIGO = [
+  "# pipeline.py · do pixel ao texto",
+  "def processar(imagem):",
+  "    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)",
+  "    contraste = cv2.createCLAHE(2.0).apply(cinza)",
+  "    limpa = cv2.medianBlur(contraste, 3)",
+  "    binaria = cv2.adaptiveThreshold(",
+  "        limpa, 255, GAUSS, BINARY, 31, 11)",
+  "    alinhada, angulo = corrigir_inclinacao(binaria)",
+  "    return pytesseract.image_to_string(",
+  "        alinhada, lang=\"por+eng\")"
+];
+const HERO_TERMINAL = [
+  ["t-cmd", "python -m nexo processar apostila.jpg"],
+  ["t-ok", "tons de cinza            0.02s"],
+  ["t-ok", "CLAHE + mediana          0.05s"],
+  ["t-ok", "binarização adaptativa   0.03s"],
+  ["t-ok", "inclinação corrigida    -5.04°"],
+  ["t-hi", "→ 9 linhas reconhecidas · pronto para estudar"]
+];
+
+function destacarPython(linha) {
+  const regras = /(#.*$)|("[^"]*")|\b(def|return)\b|\b(cv2|pytesseract)\b|\b(\d+(?:\.\d+)?)\b|(\w+)(?=\()/g;
+  const partes = [];
+  let ultimo = 0;
+  for (const m of linha.matchAll(regras)) {
+    if (m.index > ultimo) partes.push(["tk-txt", linha.slice(ultimo, m.index)]);
+    const classe = m[1] ? "tk-com" : m[2] ? "tk-str" : m[3] ? "tk-kw" : m[4] ? "tk-mod" : m[5] ? "tk-num" : "tk-fn";
+    partes.push([classe, m[0]]);
+    ultimo = m.index + m[0].length;
+  }
+  if (ultimo < linha.length) partes.push(["tk-txt", linha.slice(ultimo)]);
+  return partes;
+}
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const heroVisivel = () => heroCode.getClientRects().length > 0 && !document.hidden;
+
+async function animarHero() {
+  const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const caret = document.createElement("span");
+  caret.className = "type-caret";
+  while (true) {
+    heroCode.replaceChildren();
+    heroTerminal.replaceChildren();
+    for (const [indice, linha] of HERO_CODIGO.entries()) {
+      const li = document.createElement("li");
+      heroCode.querySelector(".current")?.classList.remove("current");
+      li.className = "current";
+      heroCode.append(li);
+      let coluna = 0;
+      for (const [classe, texto] of destacarPython(linha)) {
+        const span = document.createElement("span");
+        span.className = classe;
+        li.append(span, caret);
+        if (semMovimento) { span.textContent = texto; coluna += texto.length; continue; }
+        for (const letra of texto) {
+          while (!heroVisivel()) await esperar(400);
+          span.textContent += letra;
+          coluna += 1;
+          heroCursorPos.textContent = `Ln ${indice + 1}, Col ${coluna + 1}`;
+          await esperar(letra === " " ? 18 : 26 + Math.random() * 38);
+        }
+      }
+      if (!semMovimento) await esperar(160);
+    }
+    for (const [classe, texto] of HERO_TERMINAL) {
+      if (!semMovimento) await esperar(classe === "t-cmd" ? 500 : 380);
+      const linha = document.createElement("div");
+      linha.className = classe;
+      linha.textContent = texto;
+      heroTerminal.append(linha);
+    }
+    if (semMovimento) return;
+    await esperar(5200);
+  }
+}
+
+if (heroCode && heroTerminal) animarHero();
+
+// MagicBento da aba Suporte: spotlight que segue o cursor, borda que acende por proximidade,
+// partículas no hover, leve efeito ímã e ripple no clique. Desligado em telas pequenas e com movimento reduzido.
+function iniciarMagicBento(grade) {
+  const RAIO = 300;
+  const PROXIMIDADE = RAIO * 0.5;
+  const DISTANCIA_FADE = RAIO * 0.75;
+  const PARTICULAS = 12;
+  const cards = [...grade.querySelectorAll(".magic-bento-card")];
+  const semAnimacao = () => window.innerWidth <= 768
+    || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const spotlight = document.createElement("div");
+  spotlight.className = "bento-spotlight";
+  document.body.append(spotlight);
+
+  document.addEventListener("mousemove", (evento) => {
+    const area = grade.getBoundingClientRect();
+    const dentro = !semAnimacao() && area.width > 0
+      && evento.clientX >= area.left && evento.clientX <= area.right
+      && evento.clientY >= area.top && evento.clientY <= area.bottom;
+    if (!dentro) {
+      spotlight.style.opacity = "0";
+      cards.forEach((card) => card.style.setProperty("--glow-intensity", "0"));
+      return;
+    }
+    let menorDistancia = Infinity;
+    cards.forEach((card) => {
+      const r = card.getBoundingClientRect();
+      const distancia = Math.max(0, Math.hypot(evento.clientX - (r.left + r.width / 2), evento.clientY - (r.top + r.height / 2))
+        - Math.max(r.width, r.height) / 2);
+      menorDistancia = Math.min(menorDistancia, distancia);
+      const intensidade = distancia <= PROXIMIDADE ? 1
+        : distancia <= DISTANCIA_FADE ? (DISTANCIA_FADE - distancia) / (DISTANCIA_FADE - PROXIMIDADE) : 0;
+      card.style.setProperty("--glow-x", `${((evento.clientX - r.left) / r.width) * 100}%`);
+      card.style.setProperty("--glow-y", `${((evento.clientY - r.top) / r.height) * 100}%`);
+      card.style.setProperty("--glow-intensity", intensidade.toFixed(3));
+      card.style.setProperty("--glow-radius", `${RAIO}px`);
+    });
+    spotlight.style.left = `${evento.clientX}px`;
+    spotlight.style.top = `${evento.clientY}px`;
+    spotlight.style.opacity = menorDistancia <= PROXIMIDADE ? "0.8"
+      : menorDistancia <= DISTANCIA_FADE ? String(((DISTANCIA_FADE - menorDistancia) / (DISTANCIA_FADE - PROXIMIDADE)) * 0.8) : "0";
+  });
+  document.addEventListener("mouseleave", () => { spotlight.style.opacity = "0"; });
+
+  cards.forEach((card) => {
+    let particulas = [];
+    let timers = [];
+
+    const limparParticulas = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      particulas.forEach((p) => {
+        p.animate([{ opacity: getComputedStyle(p).opacity, transform: getComputedStyle(p).transform }, { opacity: 0, transform: "scale(0)" }],
+          { duration: 300, easing: "cubic-bezier(.36,0,.66,-0.56)", fill: "forwards" }).onfinish = () => p.remove();
+      });
+      particulas = [];
+    };
+
+    card.addEventListener("mouseenter", () => {
+      if (semAnimacao()) return;
+      const { width, height } = card.getBoundingClientRect();
+      for (let i = 0; i < PARTICULAS; i += 1) {
+        timers.push(setTimeout(() => {
+          const p = document.createElement("span");
+          p.className = "bento-particle";
+          p.style.left = `${Math.random() * width}px`;
+          p.style.top = `${Math.random() * height}px`;
+          card.append(p);
+          particulas.push(p);
+          const dx = (Math.random() - 0.5) * 100;
+          const dy = (Math.random() - 0.5) * 100;
+          p.animate([{ transform: "scale(0)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }],
+            { duration: 300, easing: "cubic-bezier(.34,1.56,.64,1)" });
+          p.animate([{ transform: "translate(0, 0) rotate(0deg)" }, { transform: `translate(${dx}px, ${dy}px) rotate(${Math.random() * 360}deg)` }],
+            { duration: 2000 + Math.random() * 2000, iterations: Infinity, direction: "alternate", easing: "linear", delay: 300 });
+          p.animate([{ opacity: 1 }, { opacity: 0.3 }],
+            { duration: 1500, iterations: Infinity, direction: "alternate", easing: "ease-in-out", delay: 300 });
+        }, i * 100));
+      }
+    });
+
+    card.addEventListener("mousemove", (evento) => {
+      if (semAnimacao()) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", `${(evento.clientX - r.left - r.width / 2) * 0.05}px`);
+      card.style.setProperty("--my", `${(evento.clientY - r.top - r.height / 2) * 0.05}px`);
+    });
+
+    card.addEventListener("mouseleave", () => {
+      card.style.setProperty("--mx", "0px");
+      card.style.setProperty("--my", "0px");
+      limparParticulas();
+    });
+
+    card.addEventListener("click", (evento) => {
+      if (semAnimacao()) return;
+      const r = card.getBoundingClientRect();
+      const x = evento.clientX - r.left;
+      const y = evento.clientY - r.top;
+      const raio = Math.max(Math.hypot(x, y), Math.hypot(x - r.width, y), Math.hypot(x, y - r.height), Math.hypot(x - r.width, y - r.height));
+      const ripple = document.createElement("span");
+      ripple.className = "bento-ripple";
+      Object.assign(ripple.style, { width: `${raio * 2}px`, height: `${raio * 2}px`, left: `${x - raio}px`, top: `${y - raio}px` });
+      card.append(ripple);
+      ripple.animate([{ transform: "scale(0)", opacity: 1 }, { transform: "scale(1)", opacity: 0 }],
+        { duration: 800, easing: "cubic-bezier(.22,1,.36,1)" }).onfinish = () => ripple.remove();
+    });
+  });
+}
+
+document.querySelectorAll(".magic-bento").forEach(iniciarMagicBento);
+
+// Carrossel da aba Sobre: arrastar, rotação 3D dos slides vizinhos, loop infinito com clones,
+// autoplay que pausa com o mouse em cima, indicadores e setas do teclado.
+function iniciarCarrossel(container, { autoplay = true, intervalo = 6000, loop = true } = {}) {
+  const GAP = 16;
+  const LIMIAR_VELOCIDADE = 0.5; // px/ms
+  const track = container.querySelector(".carousel-track");
+  const originais = [...track.children];
+  const total = originais.length;
+  if (loop && total > 1) {
+    const clone = (el) => Object.assign(el.cloneNode(true), { ariaHidden: "true" });
+    track.prepend(clone(originais[total - 1]));
+    track.append(clone(originais[0]));
+  }
+  const itens = [...track.children];
+  const indicadores = originais.map((_, indice) => {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "carousel-indicator";
+    botao.setAttribute("aria-label", `Ir para o slide ${indice + 1}`);
+    botao.addEventListener("click", () => irPara(loop ? indice + 1 : indice));
+    container.querySelector(".carousel-indicators").append(botao);
+    return botao;
+  });
+
+  let largura = 0;
+  let passo = 0;
+  let posicao = loop ? 1 : 0;
+  let x = 0;
+  let animando = false;
+  let arraste = null;
+  let mouseEmCima = false;
+  let quadro = 0;
+
+  const aplicarX = (valor) => {
+    x = valor;
+    track.style.transform = `translate3d(${x}px, 0, 0)`;
+    itens.forEach((item, indice) => {
+      item.style.transform = `rotateY(${((-x - indice * passo) / passo) * 90}deg)`;
+    });
+  };
+
+  const acompanharTransicao = () => {
+    cancelAnimationFrame(quadro);
+    const passoQuadro = () => {
+      const atual = new DOMMatrixReadOnly(getComputedStyle(track).transform).m41;
+      itens.forEach((item, indice) => {
+        item.style.transform = `rotateY(${((-atual - indice * passo) / passo) * 90}deg)`;
+      });
+      if (animando) quadro = requestAnimationFrame(passoQuadro);
+    };
+    quadro = requestAnimationFrame(passoQuadro);
+  };
+
+  const atualizarIndicadores = () => {
+    const ativo = loop ? (posicao - 1 + total) % total : Math.min(posicao, total - 1);
+    indicadores.forEach((botao, indice) => {
+      botao.classList.toggle("active", indice === ativo);
+      botao.setAttribute("aria-current", indice === ativo ? "true" : "false");
+    });
+    track.style.perspectiveOrigin = `${posicao * passo + largura / 2}px 50%`;
+  };
+
+  function irPara(nova, animar = true) {
+    if (!passo) return;
+    posicao = Math.max(0, Math.min(nova, itens.length - 1));
+    atualizarIndicadores();
+    const destino = -posicao * passo;
+    const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!animar || semMovimento || destino === x) {
+      track.classList.remove("animating");
+      aplicarX(destino);
+      corrigirLoop();
+      return;
+    }
+    animando = true;
+    track.classList.add("animating");
+    track.style.transform = `translate3d(${destino}px, 0, 0)`;
+    x = destino;
+    acompanharTransicao();
+  }
+
+  // Ao chegar num clone, salta sem animação para o slide real equivalente.
+  function corrigirLoop() {
+    if (!loop) return;
+    if (posicao === itens.length - 1) irPara(1, false);
+    else if (posicao === 0) irPara(total, false);
+  }
+
+  track.addEventListener("transitionend", (evento) => {
+    if (evento.target !== track) return;
+    animando = false;
+    track.classList.remove("animating");
+    aplicarX(x);
+    corrigirLoop();
+  });
+
+  const medir = () => {
+    const estilo = getComputedStyle(container);
+    largura = container.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight);
+    if (largura <= 0) return;
+    passo = largura + GAP;
+    itens.forEach((item) => { item.style.width = `${largura}px`; });
+    irPara(posicao, false);
+  };
+  new ResizeObserver(medir).observe(container);
+
+  track.addEventListener("pointerdown", (evento) => {
+    if (animando || !passo || evento.button !== 0) return;
+    arraste = { inicio: evento.clientX, base: x, ultimoX: evento.clientX, ultimoT: performance.now(), velocidade: 0 };
+    track.setPointerCapture(evento.pointerId);
+    container.classList.add("dragging");
+  });
+  track.addEventListener("pointermove", (evento) => {
+    if (!arraste) return;
+    const agora = performance.now();
+    arraste.velocidade = (evento.clientX - arraste.ultimoX) / Math.max(1, agora - arraste.ultimoT);
+    arraste.ultimoX = evento.clientX;
+    arraste.ultimoT = agora;
+    let novo = arraste.base + (evento.clientX - arraste.inicio);
+    if (!loop) novo = Math.min(0, Math.max(novo, -(itens.length - 1) * passo));
+    aplicarX(novo);
+  });
+  const soltar = () => {
+    if (!arraste) return;
+    const deslocamento = x - arraste.base;
+    const direcao = deslocamento < -passo * 0.15 || arraste.velocidade < -LIMIAR_VELOCIDADE ? 1
+      : deslocamento > passo * 0.15 || arraste.velocidade > LIMIAR_VELOCIDADE ? -1 : 0;
+    arraste = null;
+    container.classList.remove("dragging");
+    irPara(posicao + direcao);
+  };
+  track.addEventListener("pointerup", soltar);
+  track.addEventListener("pointercancel", soltar);
+
+  container.addEventListener("keydown", (evento) => {
+    if (evento.key === "ArrowRight") { evento.preventDefault(); if (!animando) irPara(posicao + 1); }
+    if (evento.key === "ArrowLeft") { evento.preventDefault(); if (!animando) irPara(posicao - 1); }
+  });
+  container.addEventListener("mouseenter", () => { mouseEmCima = true; });
+  container.addEventListener("mouseleave", () => { mouseEmCima = false; });
+
+  if (autoplay) {
+    setInterval(() => {
+      const visivel = container.getClientRects().length > 0 && !document.hidden;
+      const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (visivel && !mouseEmCima && !arraste && !animando && !semMovimento && container !== document.activeElement) {
+        irPara(loop ? posicao + 1 : Math.min(posicao + 1, itens.length - 1));
+      }
+    }, intervalo);
+  }
+}
+
+document.querySelectorAll("[data-carousel]").forEach((container) => iniciarCarrossel(container));
+
+// BorderGlow: --edge-proximity (0 no centro, 100 na borda) e --cursor-angle orientam o brilho da borda.
+// Delegado no documento para valer também nos slides clonados pelo carrossel.
+document.addEventListener("pointermove", (evento) => {
+  const card = evento.target.closest?.(".border-glow-card");
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  const cx = r.width / 2;
+  const cy = r.height / 2;
+  const dx = evento.clientX - r.left - cx;
+  const dy = evento.clientY - r.top - cy;
+  const kx = dx === 0 ? Infinity : cx / Math.abs(dx);
+  const ky = dy === 0 ? Infinity : cy / Math.abs(dy);
+  const proximidade = Math.min(Math.max(1 / Math.min(kx, ky), 0), 1);
+  let angulo = dx === 0 && dy === 0 ? 0 : Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+  if (angulo < 0) angulo += 360;
+  card.style.setProperty("--edge-proximity", (proximidade * 100).toFixed(3));
+  card.style.setProperty("--cursor-angle", `${angulo.toFixed(3)}deg`);
+});

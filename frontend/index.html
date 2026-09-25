@@ -7,7 +7,7 @@
   <title>Imagem em foco — Laboratório de estudos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
 </head>
@@ -264,7 +264,7 @@
       </section>
 
       <section class="screen" data-screen-content="fundamentos">
-        <div class="screen-header theory-box">
+        <div class="screen-header theory-box" data-reveal>
           <div class="theory-mark">✳</div>
           <div>
             <span class="step-tag">FUNDAMENTO</span>
@@ -272,65 +272,97 @@
           </div>
         </div>
 
-        <div class="info-card large">
-          <p>Uma imagem digital é composta por pixels organizados em linhas e colunas. Cada pixel representa uma intensidade de luz, e o processamento da imagem busca tornar essas intensidades mais úteis para a análise visual e o reconhecimento de caracteres.</p>
-          <p>Em documentos, o texto pode ficar apagado, torto, com ruído de fundo ou com baixa qualidade de contraste. Por isso, técnicas como conversão para escala de cinza, equalização de contraste, redução de ruído, binarização e correção de inclinação são essenciais para melhorar a legibilidade antes do OCR.</p>
-          <a href="/docs" target="_blank" rel="noreferrer">Explorar API <span>↗</span></a>
-        </div>
-
         <div class="topic-grid">
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/01-imagem-digital.webp" alt="Página fotografada e ampliação de uma letra mostrando a grade de pixels com seus valores de intensidade" loading="lazy" width="726" height="400"><figcaption>zoom nos pixels</figcaption></figure>
             <span class="topic-tag">01</span>
             <h3>Imagem digital</h3>
             <p>Representa a cena por matrizes de pixels, onde cada elemento possui intensidade e cor. Esse formato permite aplicar algoritmos computacionais para extrair informações.</p>
           </article>
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/02-escala-cinza.webp" alt="A mesma página colorida e convertida para tons de cinza" loading="lazy" width="726" height="400"><figcaption>colorida → cinza</figcaption></figure>
             <span class="topic-tag">02</span>
             <h3>Escala de cinza</h3>
             <p>Reduz a informação colorida para intensidade luminosa, simplificando a análise e reduzindo variações que não ajudam no reconhecimento do texto.</p>
           </article>
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/03-contraste-ruido.webp" alt="Trecho da página antes e depois do CLAHE e do filtro mediano" loading="lazy" width="726" height="400"><figcaption>antes → CLAHE + mediana</figcaption></figure>
             <span class="topic-tag">03</span>
             <h3>Contraste e ruído</h3>
             <p>O CLAHE aumenta a diferença entre regiões escuras e claras, enquanto filtros de suavização removem detalhes pontuais indesejados que dificultam a leitura.</p>
           </article>
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/04-binarizacao.webp" alt="Página em tons de cinza e o resultado binarizado em preto e branco" loading="lazy" width="726" height="400"><figcaption>antes → binária</figcaption></figure>
             <span class="topic-tag">04</span>
             <h3>Binarização</h3>
             <p>Converte a imagem em preto e branco, separando melhor os traços do texto do fundo. Isso melhora a precisão do reconhecimento por OCR.</p>
           </article>
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/05-inclinacao.webp" alt="Página inclinada ao lado da versão alinhada, com linhas-guia horizontais" loading="lazy" width="726" height="400"><figcaption>antes → alinhada</figcaption></figure>
             <span class="topic-tag">05</span>
             <h3>Correção de inclinação</h3>
             <p>Quando a página está torta, o texto pode ficar distorcido. A correção angular ajuda a alinhar as linhas, melhorando o reconhecimento automático.</p>
           </article>
-          <article class="topic-card">
+          <article class="topic-card" data-reveal>
+            <figure class="topic-figure"><img src="/static/fundamentos/06-ocr.webp" alt="Palavras reconhecidas marcadas na página e o texto extraído pelo Tesseract" loading="lazy" width="726" height="400"><figcaption>antes → texto extraído</figcaption></figure>
             <span class="topic-tag">06</span>
             <h3>OCR</h3>
             <p>O reconhecimento óptico de caracteres interpreta formas e tenta converter as letras em texto legível. A qualidade da imagem diretamente influencia o resultado final.</p>
           </article>
         </div>
+
+        <div class="info-card large margin-top" data-reveal>
+          <p>Uma imagem digital é composta por pixels organizados em linhas e colunas. Cada pixel representa uma intensidade de luz, e o processamento da imagem busca tornar essas intensidades mais úteis para a análise visual e o reconhecimento de caracteres.</p>
+          <p>Em documentos, o texto pode ficar apagado, torto, com ruído de fundo ou com baixa qualidade de contraste. Por isso, técnicas como conversão para escala de cinza, equalização de contraste, redução de ruído, binarização e correção de inclinação são essenciais para melhorar a legibilidade antes do OCR.</p>
+        </div>
       </section>
 
       <section class="screen" data-screen-content="perfil">
-        <div class="screen-header">
-          <span class="step-tag">CONTA</span>
-          <h2>Perfil do projeto</h2>
+        <div class="profile-hero">
+          <div class="hero-copy" data-reveal>
+            <div class="eyebrow"><span class="eyebrow-line"></span> CONTA · PERFIL DO PROJETO</div>
+            <h1>Do pixel ao <span>texto</span>, linha por linha.</h1>
+            <p>Olá, <strong id="hero-user-name">estudante</strong>. Este é o seu laboratório: cada imagem passa por um pipeline em Python com OpenCV e Tesseract até virar texto pronto para estudar.</p>
+            <div class="hero-actions">
+              <button class="primary-button" type="button" data-go-screen="processamento">Processar imagem <span aria-hidden="true">→</span></button>
+              <button class="ghost-button" type="button" data-go-screen="etapas">Ver as etapas</button>
+            </div>
+            <ul class="hero-meta">
+              <li><strong>4</strong><span>etapas de preparo</span></li>
+              <li><strong>por+eng</strong><span>idiomas do OCR</span></li>
+              <li><strong>10</strong><span>páginas por PDF</span></li>
+            </ul>
+          </div>
+
+          <div class="code-window" data-reveal role="img" aria-label="Editor de código digitando a função processar do pipeline e um terminal mostrando a execução de cada etapa">
+            <div class="code-titlebar">
+              <span class="code-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="code-tab active">pipeline.py</span>
+              <span class="code-tab">ocr.log</span>
+              <span class="code-branch">⎇ main</span>
+            </div>
+            <div class="code-body" aria-hidden="true"><ol class="code-lines" id="hero-code"></ol></div>
+            <div class="code-terminal" aria-hidden="true">
+              <div class="terminal-head"><span>TERMINAL</span><span>zsh</span></div>
+              <div id="hero-terminal"></div>
+            </div>
+            <div class="code-status" aria-hidden="true"><span><i class="status-led"></i> Python 3.14</span><span>OpenCV · Tesseract</span><span id="hero-cursor-pos">Ln 1, Col 1</span></div>
+          </div>
         </div>
 
-        <div class="profile-layout">
+        <div class="profile-layout" data-reveal>
           <div class="info-card profile-panel">
             <div class="profile-header">
-              <div class="avatar large">ES</div>
+              <div class="avatar large" id="profile-avatar">ES</div>
               <div>
-                <h3>Estudante</h3>
-                <p>Projeto acadêmico de processamento de imagens</p>
+                <h3 id="profile-name">Estudante</h3>
+                <p id="profile-email">Projeto acadêmico de processamento de imagens</p>
               </div>
             </div>
             <ul class="detail-list">
-              <li><span>Aluno</span><strong>Nome do aluno</strong></li>
-              <li><span>Curso</span><strong>Processamento Digital de Imagens</strong></li>
-              <li><span>Disciplina</span><strong>Visão Computacional / OCR</strong></li>
+              <li><span>Aluno</span><strong id="profile-student">Nome do aluno</strong></li>
+              <li><span>Curso</span><strong>Ciência da Computação</strong></li>
+              <li><span>Disciplina</span><strong>Processamento de Imagem</strong></li>
               <li><span>Objetivo</span><strong>Extrair texto de imagens e documentos</strong></li>
             </ul>
           </div>
@@ -344,107 +376,217 @@
       </section>
 
       <section class="screen" data-screen-content="configuracoes">
-        <div class="screen-header">
+        <div class="screen-header settings-header" data-reveal>
           <span class="step-tag">AJUSTES</span>
-          <h2>Configurações do processo</h2>
+          <h2>Configurações</h2>
+          <p>Gerencie sua conta e veja como o laboratório trata cada imagem.</p>
         </div>
 
-        <div class="settings-grid">
-          <div class="info-card">
-            <h3>Visão e processamento</h3>
+        <div class="settings-layout">
+          <article class="settings-card account-card" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+              <div><span class="step-tag">CONTA</span><h3>Sua conta</h3></div>
+            </div>
+            <div class="account-identity">
+              <div class="avatar account-avatar" id="settings-avatar">ES</div>
+              <div class="account-identity-text">
+                <strong id="settings-name">Carregando…</strong>
+                <span id="settings-email">—</span>
+              </div>
+              <span class="role-badge" id="settings-role">—</span>
+            </div>
+            <div class="setting-row"><span>Forma de acesso</span><strong id="settings-provider">—</strong></div>
+            <div class="setting-row"><span>Membro desde</span><strong id="settings-created">—</strong></div>
+            <div class="setting-row"><span>Sessão atual válida até</span><strong id="settings-session">—</strong></div>
+            <div class="account-actions">
+              <a class="ghost-button danger" href="/auth/logout">Sair da conta <span aria-hidden="true">↪</span></a>
+            </div>
+          </article>
+
+          <article class="settings-card password-card" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+              <div><span class="step-tag">SEGURANÇA</span><h3>Alterar senha</h3></div>
+            </div>
+            <form id="password-form" class="settings-form" novalidate>
+              <label for="current-password">Senha atual</label>
+              <input id="current-password" name="current" type="password" autocomplete="current-password" required>
+              <label for="new-password">Nova senha</label>
+              <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo de 8 caracteres" required>
+              <label for="confirm-password">Confirme a nova senha</label>
+              <input id="confirm-password" name="confirm" type="password" autocomplete="new-password" minlength="8" required>
+              <button class="primary-button" type="submit">Salvar nova senha</button>
+              <p class="settings-message" role="status" hidden></p>
+            </form>
+          </article>
+
+          <article class="settings-card" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+              <div><span class="step-tag">IMAGEM</span><h3>Visão e processamento</h3></div>
+            </div>
             <div class="setting-row"><span>Modo de leitura</span><strong>Documentos e páginas</strong></div>
             <div class="setting-row"><span>Tema</span><strong>Escuro</strong></div>
             <div class="setting-row"><span>Contraste</span><strong>Melhorado por CLAHE</strong></div>
             <div class="setting-row"><span>Suavização</span><strong>Filtro mediano</strong></div>
-          </div>
+          </article>
 
-          <div class="info-card">
-            <h3>OCR e saída</h3>
+          <article class="settings-card" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></span>
+              <div><span class="step-tag">TEXTO</span><h3>OCR e saída</h3></div>
+            </div>
             <div class="setting-row"><span>Idiomas</span><strong>Português + Inglês</strong></div>
             <div class="setting-row"><span>Qualidade</span><strong>Auto</strong></div>
             <div class="setting-row"><span>Correção</span><strong>Inclinação automática</strong></div>
             <div class="setting-row"><span>Resultado</span><strong>Texto em tela e cópia</strong></div>
-          </div>
-        </div>
+          </article>
 
-        <div class="info-card large margin-top">
-          <h3>Como o sistema foi pensado</h3>
-          <p>As configurações são direcionadas para documentos que precisam de uma leitura mais confiável, como páginas de estudo, formulários, textos impressos e materiais com baixa qualidade visual. O objetivo é melhorar a retenção dos caracteres e reduzir falhas no OCR.</p>
-          <p>Quando a imagem entra com boa nitidez, a etapa de pré-processamento torna os contornos mais definidos e aumenta a chance de identificar corretamente as letras, palavras e frases.</p>
+          <article class="settings-card settings-wide" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg></span>
+              <div><span class="step-tag">PROPÓSITO</span><h3>Como o sistema foi pensado</h3></div>
+            </div>
+            <p>As configurações são direcionadas para documentos que precisam de uma leitura mais confiável, como páginas de estudo, formulários, textos impressos e materiais com baixa qualidade visual. O objetivo é melhorar a retenção dos caracteres e reduzir falhas no OCR.</p>
+            <p>Quando a imagem entra com boa nitidez, a etapa de pré-processamento torna os contornos mais definidos e aumenta a chance de identificar corretamente as letras, palavras e frases.</p>
+          </article>
         </div>
       </section>
 
       <section class="screen" data-screen-content="suporte">
-        <div class="screen-header">
+        <div class="screen-header support-header" data-reveal>
           <span class="step-tag">CENTRAL DE AJUDA</span>
-          <h2>Suporte</h2>
-          <p>Consulte o estado do laboratorio e encontre orientacoes para resolver problemas comuns.</p>
+          <h2>Como podemos ajudar?</h2>
+          <p>Tudo o que você precisa para transformar suas páginas em texto e estudar com elas.</p>
         </div>
 
-        <div class="detail-grid">
-          <div class="detail-box"><span>API local</span><strong id="support-api-status">Verificando</strong></div>
-          <div class="detail-box"><span>Reconhecimento OCR</span><strong id="support-ocr-status">Verificando</strong></div>
+        <div class="bento-section magic-bento" data-reveal>
+          <article class="magic-bento-card">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Primeiros passos</span><span class="bento-glyph">↗</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">Envie sua página</h3>
+              <p class="magic-bento-card__description">Em Processamento, arraste a imagem até a área indicada ou clique em <strong>procure no dispositivo</strong>. Dá para enviar até 2 arquivos por vez, inclusive PDFs de até 10 páginas.</p>
+            </div>
+          </article>
+
+          <article class="magic-bento-card">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Dica</span><span class="bento-glyph">◐</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">Tire uma boa foto</h3>
+              <p class="magic-bento-card__description">Use luz uniforme, evite sombras e reflexos e enquadre a página inteira, com o celular paralelo ao papel.</p>
+            </div>
+          </article>
+
+          <article class="magic-bento-card bento-large">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Passo a passo</span><span class="bento-glyph">⌘</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">Da foto ao texto em 4 passos</h3>
+              <p class="magic-bento-card__description">Tudo acontece na aba Processamento.</p>
+              <ol class="bento-steps">
+                <li>Escolha a foto ou o PDF da página.</li>
+                <li>Clique em <strong>Processar imagem</strong> e aguarde alguns segundos.</li>
+                <li>Veja como a página ficou em <strong>Antes e depois</strong>.</li>
+                <li>Use <strong>Copiar texto</strong> para levar o conteúdo às suas anotações.</li>
+              </ol>
+            </div>
+          </article>
+
+          <article class="magic-bento-card bento-large">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Resultado</span><span class="bento-glyph">✎</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">O texto saiu com erros?</h3>
+              <p class="magic-bento-card__description">Algumas imagens precisam de uma ajuda extra. Tente nesta ordem:</p>
+              <ol class="bento-steps">
+                <li>Em <strong>Ajuste manual</strong>, aumente o contraste ou o brilho.</li>
+                <li>Use a rotação se a página ainda estiver torta.</li>
+                <li>Se não melhorar, tire uma foto mais nítida e processe de novo.</li>
+              </ol>
+            </div>
+          </article>
+
+          <article class="magic-bento-card">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Estudos</span><span class="bento-glyph">✳</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">Aproveite o assistente</h3>
+              <p class="magic-bento-card__description">Depois de processar, confira o resumo do conteúdo, os exercícios de revisão e as sugestões de livros sobre o assunto.</p>
+            </div>
+          </article>
+
+          <article class="magic-bento-card">
+            <div class="magic-bento-card__header"><span class="magic-bento-card__label">Histórico</span><span class="bento-glyph">◫</span></div>
+            <div class="magic-bento-card__content">
+              <h3 class="magic-bento-card__title">Reveja e compare</h3>
+              <p class="magic-bento-card__description">Suas páginas ficam no Histórico deste navegador. Em Comparar imagens, coloque duas lado a lado.</p>
+            </div>
+          </article>
         </div>
 
-        <div class="settings-grid margin-top">
-          <article class="info-card">
-            <h3>O OCR nao esta disponivel</h3>
-            <p>O Tesseract precisa estar instalado com os modelos de idioma portugues e ingles. Reinicie o servidor depois de instalar ou configurar o executavel.</p>
-          </article>
-          <article class="info-card">
-            <h3>O servidor nao conecta</h3>
-            <p>Confira se a API esta em execucao e abra o mesmo endereco local usado para iniciar o servidor. A documentacao da API fica em <code>/docs</code>.</p>
-          </article>
-          <article class="info-card">
-            <h3>O arquivo nao foi aceito</h3>
-            <p>Use PNG, JPG, BMP, TIFF, WEBP ou PDF. Cada arquivo pode ter ate 12 MB; cada PDF pode ter ate 10 paginas.</p>
-          </article>
-          <article class="info-card">
-            <h3>Uma imagem antiga nao aparece para comparar</h3>
-            <p>O historico guarda miniaturas no navegador. Registros criados antes desse recurso precisam ser processados novamente para salvar a imagem.</p>
-          </article>
-        </div>
+        <p class="support-footer" data-reveal>Esqueceu a senha? Na tela de entrada, clique em <strong>Esqueceu a senha?</strong> e enviaremos um link para o seu e-mail.</p>
       </section>
 
       <section class="screen" data-screen-content="sobre">
-        <div class="screen-header">
+        <div class="screen-header about-header" data-reveal>
           <span class="step-tag">INFORMAÇÕES</span>
           <h2>Sobre o projeto</h2>
+          <p>Arraste para o lado, use as setas do teclado ou clique nos pontos para navegar.</p>
         </div>
 
-        <div class="info-card large">
-          <p>Este projeto foi desenvolvido para demonstrar a aplicação de processamento digital de imagens na extração de texto a partir de documentos e imagens com diferentes níveis de qualidade visual. A proposta combina fundamentos de visão computacional, tratamento de pixels e reconhecimento óptico de caracteres para transformar uma imagem em informação legível e útil.</p>
-          <p>O sistema utiliza Python, OpenCV e Tesseract para executar um pipeline completo de análise: validação da imagem, conversão para tons de cinza, ajuste de contraste, correção de inclinação, binarização e reconhecimento do texto. O objetivo é apresentar de forma didática como cada etapa influencia diretamente a qualidade final da leitura automatizada.</p>
-        </div>
+        <div class="carousel-container" data-carousel data-reveal tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Sobre o projeto">
+          <div class="carousel-track">
+            <article class="carousel-item border-glow-card" aria-roledescription="slide" aria-label="1 de 4">
+              <span class="edge-light" aria-hidden="true"></span>
+              <div class="carousel-item-header"><span class="carousel-icon-container"><svg class="carousel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><span class="carousel-item-index">01 / 04</span></div>
+              <div class="carousel-item-content">
+                <h3 class="carousel-item-title">O projeto</h3>
+                <p class="carousel-item-description">Este projeto foi desenvolvido para demonstrar a aplicação de processamento digital de imagens na extração de texto a partir de documentos e imagens com diferentes níveis de qualidade visual. A proposta combina fundamentos de visão computacional, tratamento de pixels e reconhecimento óptico de caracteres para transformar uma imagem em informação legível e útil.</p>
+                <p class="carousel-item-description">O sistema utiliza Python, OpenCV e Tesseract para executar um pipeline completo de análise: validação da imagem, conversão para tons de cinza, ajuste de contraste, correção de inclinação, binarização e reconhecimento do texto. O objetivo é apresentar de forma didática como cada etapa influencia diretamente a qualidade final da leitura automatizada.</p>
+              </div>
+            </article>
 
-        <div class="info-card large margin-top">
-          <h3>Objetivos do trabalho</h3>
-          <ul class="feature-list">
+            <article class="carousel-item border-glow-card" aria-roledescription="slide" aria-label="2 de 4">
+              <span class="edge-light" aria-hidden="true"></span>
+              <div class="carousel-item-header"><span class="carousel-icon-container"><svg class="carousel-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span><span class="carousel-item-index">02 / 04</span></div>
+              <div class="carousel-item-content">
+                <h3 class="carousel-item-title">Objetivos do trabalho</h3>
+                <ul class="feature-list">
             <li>Aplicar conceitos de processamento digital de imagens em um cenário prático e realista.</li>
             <li>Melhorar a qualidade visual de documentos antes da etapa de reconhecimento.</li>
             <li>Extrair texto automaticamente e disponibilizar o resultado em uma interface simples.</li>
             <li>Demonstrar o funcionamento de OCR e o impacto das etapas de pré-processamento no resultado final.</li>
-          </ul>
-        </div>
+                </ul>
+              </div>
+            </article>
 
-        <div class="info-card large margin-top">
-          <h3>Aplicações reais</h3>
-          <ul class="feature-list">
+            <article class="carousel-item border-glow-card" aria-roledescription="slide" aria-label="3 de 4">
+              <span class="edge-light" aria-hidden="true"></span>
+              <div class="carousel-item-header"><span class="carousel-icon-container"><svg class="carousel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="carousel-item-index">03 / 04</span></div>
+              <div class="carousel-item-content">
+                <h3 class="carousel-item-title">Aplicações reais</h3>
+                <ul class="feature-list">
             <li>Leitura de documentos escolares, apostilas e materiais impressos.</li>
             <li>Digitalização de páginas com baixa qualidade visual.</li>
             <li>Extração de texto em imagens com ruído, sombras ou distorções leves.</li>
             <li>Automação de tarefas relacionadas a arquivos físicos e digitais.</li>
-          </ul>
-        </div>
+                </ul>
+              </div>
+            </article>
 
-        <div class="info-card large margin-top">
-          <h3>Bibliografia sugerida</h3>
-          <ul class="feature-list">
+            <article class="carousel-item border-glow-card" aria-roledescription="slide" aria-label="4 de 4">
+              <span class="edge-light" aria-hidden="true"></span>
+              <div class="carousel-item-header"><span class="carousel-icon-container"><svg class="carousel-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2H6"/></svg></span><span class="carousel-item-index">04 / 04</span></div>
+              <div class="carousel-item-content">
+                <h3 class="carousel-item-title">Bibliografia sugerida</h3>
+                <ul class="feature-list">
             <li>OpenCV Documentation — processamento de imagem, filtros e transformação geométrica.</li>
             <li>Tesseract OCR Documentation — reconhecimento óptico de caracteres.</li>
             <li>GONZALEZ, Rafael C.; WOODS, Richard E. — Processamento Digital de Imagens.</li>
             <li>Materiais acadêmicos sobre visão computacional e OCR aplicado a documentos.</li>
-          </ul>
+                </ul>
+              </div>
+            </article>
+          </div>
+          <div class="carousel-indicators-container"><div class="carousel-indicators"></div></div>
         </div>
       </section>
     </main>

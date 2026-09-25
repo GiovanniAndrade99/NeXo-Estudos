@@ -696,7 +696,16 @@ button,input {
 .login-message[data-type="info"] { border-color: #c8daf5; background: #eff5fe; color: #1f4f96; }
 .submit-button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 .view-footer { margin: 22px 0 0; text-align: center; }
-.auth-panel { background: #fff; }
+.auth-panel { position: relative; background: #fff; }
+/* O rodapé sai do fluxo para não empurrar o formulário para cima; assim ele fica no centro vertical. */
+.auth-legal {
+  position: absolute;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  margin-top: 0;
+  padding-top: 0;
+}
 .auth-heading { margin-bottom: 26px; }
 .auth-heading h2 { font-size: 30px; }
 .auth-heading p { margin-top: 5px; font-size: 13px; }
@@ -716,5 +725,10 @@ button,input {
     padding: 22px 24px;
   }
   .auth-story .story-copy { margin: auto 0 12px; }
+  .auth-legal {
+    position: static;
+    transform: none;
+    margin-top: 34px;
+  }
   .auth-story .story-copy h1 { font-size: 34px; }
 }
