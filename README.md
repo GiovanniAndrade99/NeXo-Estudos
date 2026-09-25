@@ -13,6 +13,10 @@ Aplicacao academica de processamento digital de imagens e reconhecimento optico 
 - Menu **Comparar imagens**, logo abaixo de **Historico**, com tempos por item e comparacao de quaisquer duas imagens salvas no historico.
 - Ajustes manuais, historico local e sugestoes de estudo.
 
+## Funcionamento e pipeline
+
+A documentação detalhada do funcionamento, das etapas de processamento de imagens e da integração com IA está em [docs/PIPELINE.md](docs/PIPELINE.md). Ela também esclarece o papel do OCR, das regras de classificação temática e a situação do dataset: a versão atual não utiliza dataset próprio de treinamento.
+
 ## Requisitos
 
 - Python 3.11 ou superior.
