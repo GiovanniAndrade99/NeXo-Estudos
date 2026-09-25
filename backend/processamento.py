@@ -332,15 +332,22 @@ def decodificar_imagem(conteudo: bytes) -> np.ndarray:
 
 
 def _corrigir_inclinacao(binaria: np.ndarray) -> tuple[np.ndarray, float]:
-    pontos = cv2.findNonZero(255 - binaria)
+    # Pontos soltos de ruído nos cantos fariam o retângulo mínimo cobrir a página toda e medir 0°.
+    _, rotulos, estatisticas, _ = cv2.connectedComponentsWithStats(255 - binaria, connectivity=8)
+    area_minima = max(40, binaria.size / 12000)
+    tinta = np.isin(rotulos, np.flatnonzero(estatisticas[1:, cv2.CC_STAT_AREA] >= area_minima) + 1)
+    pontos = cv2.findNonZero(tinta.astype(np.uint8))
     if pontos is None or len(pontos) < 20:
         return binaria, 0.0
+    # O intervalo do ângulo mudou entre versões do OpenCV; normalizar para (-45, 45] cobre ambos.
     angulo = cv2.minAreaRect(pontos)[-1]
     if angulo < -45:
-        angulo = 90 + angulo
+        angulo += 90
+    elif angulo > 45:
+        angulo -= 90
     if abs(angulo) > 15:
         return binaria, 0.0
-    correcao = -float(angulo)
+    correcao = float(angulo)
     altura, largura = binaria.shape[:2]
     matriz = cv2.getRotationMatrix2D((largura / 2, altura / 2), correcao, 1.0)
     alinhada = cv2.warpAffine(
