@@ -112,6 +112,6 @@ Os arquivos `por.traineddata` e `eng.traineddata` citados no README são modelos
 
 - `backend/main.py`: endpoints, validação de upload, conversão de PDF, medição de tempo e resposta da API.
 - `backend/processamento.py`: pré-processamento, correção de inclinação, OCR e regras do assistente de estudos.
-- `frontend/`: interface de envio e apresentação dos resultados.
+- `frontend/laboratorio/`: interface de envio e apresentação dos resultados.
 - `tools/avaliar_ocr.py`: avaliação do pipeline com o dataset FUNSD.
 - `requirements.txt`: dependências Python. O executável Tesseract e seus modelos de idioma são requisitos externos instalados separadamente.

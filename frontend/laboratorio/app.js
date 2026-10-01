@@ -43,16 +43,8 @@ fetch("/api/auth/me")
     if (!result?.authenticated || !result.user) return;
     const user = result.user;
     document.querySelector("#account-name").textContent = user.name || user.email || "Conta conectada";
-    document.querySelector("#account-provider").textContent = user.email || `Conectado com ${user.provider}`;
-    const avatar = document.querySelector("#account-avatar");
-    if (user.avatar) {
-      const image = document.createElement("img");
-      image.src = user.avatar;
-      image.alt = "";
-      avatar.replaceChildren(image);
-    } else {
-      avatar.textContent = (user.name || "U").slice(0, 2).toUpperCase();
-    }
+    document.querySelector("#account-provider").textContent = user.email || "Conta conectada";
+    document.querySelector("#account-avatar").textContent = (user.name || "U").slice(0, 2).toUpperCase();
     document.querySelector("#logout-link").hidden = false;
 
     const nome = user.name || user.email?.split("@")[0] || "estudante";
@@ -75,19 +67,15 @@ function preencherConta(user, conta, nome) {
   const papel = document.querySelector("#settings-role");
   papel.textContent = user.role === "admin" ? "Administrador" : "Usuário";
   papel.dataset.role = user.role === "admin" ? "admin" : "usuario";
-  const provedores = { senha: "E-mail e senha", google: "Google", github: "GitHub" };
-  document.querySelector("#settings-provider").textContent = provedores[user.provider] || user.provider || "—";
+  document.querySelector("#settings-provider").textContent = "E-mail e senha";
   document.querySelector("#settings-created").textContent = data(conta.created_at, { day: "2-digit", month: "long", year: "numeric" });
   document.querySelector("#settings-session").textContent = data(conta.session_expires_at, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  // Contas de provedor externo não têm senha própria para trocar.
-  if (user.provider !== "senha") document.querySelector(".password-card").hidden = true;
 
   const politicaAceita = conta.privacy_accepted_at && conta.privacy_version === conta.privacy_current_version;
   document.querySelector("#privacy-status").textContent = politicaAceita
     ? `Aceita em ${data(conta.privacy_accepted_at, { day: "2-digit", month: "2-digit", year: "numeric" })}`
     : "Versão atual não aceita";
-  document.querySelector("#privacy-consent").hidden = Boolean(politicaAceita) || user.provider !== "senha";
-  if (user.provider !== "senha") document.querySelector("#privacy-delete-open").hidden = true;
+  document.querySelector("#privacy-consent").hidden = Boolean(politicaAceita);
 }
 
 // LGPD: baixar os próprios dados, apagar o histórico local e excluir a conta.

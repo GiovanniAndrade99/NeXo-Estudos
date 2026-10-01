@@ -138,7 +138,7 @@ class RepositorioContas:
 
     @staticmethod
     def _publico(linha: sqlite3.Row) -> dict:
-        return {"provider": "senha", "id": str(linha["id"]), "name": linha["nome"], "email": linha["email"], "role": linha["papel"], "avatar": None}
+        return {"provider": "senha", "id": str(linha["id"]), "name": linha["nome"], "email": linha["email"], "role": linha["papel"]}
 
     def buscar_por_email(self, email: str) -> sqlite3.Row | None:
         with self._conectar() as banco:

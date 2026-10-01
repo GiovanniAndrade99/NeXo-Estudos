@@ -6,7 +6,6 @@ import secrets
 import time
 from time import perf_counter
 
-from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -38,13 +37,12 @@ MAX_PAGINAS_PDF = 10
 SESSAO_CURTA_SEGUNDOS = 8 * 60 * 60
 SESSAO_LONGA_SEGUNDOS = 30 * 24 * 60 * 60
 # Caminhos acessíveis sem login: a própria tela de login e as rotas de autenticação.
-ROTAS_PUBLICAS = {
-    "/login", "/static/login.css", "/static/login.js", "/static/login-hero.jpg", "/api/health",
-    "/privacidade", "/static/privacidade.css",
-}
+ROTAS_PUBLICAS = {"/login", "/privacidade", "/api/health", "/auth/logout"}
 # Versão da política de privacidade aceita no cadastro (LGPD); mude ao alterar o texto da política.
 VERSAO_POLITICA = "2026-10-01"
-PREFIXOS_PUBLICOS = ("/api/auth/", "/auth/")
+# Arquivos das páginas de login e de privacidade ficam em pastas próprias, liberadas por inteiro;
+# os do laboratório (frontend/laboratorio) continuam exigindo login.
+PREFIXOS_PUBLICOS = ("/api/auth/", "/static/login/", "/static/privacidade/")
 logger = logging.getLogger(__name__)
 
 contas = RepositorioContas(os.getenv("CONTAS_DB") or RAIZ / "contas.db")
@@ -111,46 +109,24 @@ app.add_middleware(
 app.add_middleware(BaseHTTPMiddleware, dispatch=bloquear_outras_origens)
 app.add_middleware(BaseHTTPMiddleware, dispatch=headers_de_seguranca)
 
-oauth = OAuth()
-oauth.register(
-    name="google",
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_kwargs={"scope": "openid email profile"},
-)
-oauth.register(
-    name="github",
-    client_id=os.getenv("GITHUB_CLIENT_ID"),
-    client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
-    authorize_url="https://github.com/login/oauth/authorize",
-    access_token_url="https://github.com/login/oauth/access_token",
-    api_base_url="https://api.github.com/",
-    client_kwargs={"scope": "read:user user:email"},
-)
-PROVEDORES_OAUTH = {"google", "github"}
 app.mount("/static", StaticFiles(directory=PASTA_FRONTEND), name="static")
 
 
 @app.get("/", include_in_schema=False)
 def pagina_inicial():
-    return FileResponse(PASTA_FRONTEND / "index.html")
+    return FileResponse(PASTA_FRONTEND / "laboratorio" / "index.html")
 
 
 @app.get("/login", include_in_schema=False)
 def pagina_login(request: Request):
     if usuario_da_sessao(request) and "reset" not in request.query_params:
         return RedirectResponse("/", status_code=303)
-    return FileResponse(PASTA_FRONTEND / "login.html")
+    return FileResponse(PASTA_FRONTEND / "login" / "login.html")
 
 
 @app.get("/api/auth/status")
 def status_autenticacao():
     return {
-        "providers": {
-            "google": bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET")),
-            "github": bool(os.getenv("GITHUB_CLIENT_ID") and os.getenv("GITHUB_CLIENT_SECRET")),
-        },
         "recaptcha_site_key": chave_site_recaptcha(),
         "privacy_policy_version": VERSAO_POLITICA,
     }
@@ -161,13 +137,14 @@ def usuario_atual(request: Request):
     usuario = usuario_da_sessao(request)
     if not usuario:
         return {"authenticated": False, "user": None}
-    conta = {"session_expires_at": request.session.get("expira_em")}
-    if usuario.get("provider") == "senha":
-        linha = contas.buscar_por_email(usuario.get("email", ""))
-        conta["created_at"] = linha["criado_em"] if linha else None
-        conta["privacy_accepted_at"] = linha["consentimento_em"] if linha else None
-        conta["privacy_version"] = linha["versao_politica"] if linha else None
-    conta["privacy_current_version"] = VERSAO_POLITICA
+    linha = contas.buscar_por_email(usuario.get("email", ""))
+    conta = {
+        "session_expires_at": request.session.get("expira_em"),
+        "created_at": linha["criado_em"] if linha else None,
+        "privacy_accepted_at": linha["consentimento_em"] if linha else None,
+        "privacy_version": linha["versao_politica"] if linha else None,
+        "privacy_current_version": VERSAO_POLITICA,
+    }
     return {"authenticated": True, "user": usuario, "account": conta}
 
 
@@ -269,8 +246,6 @@ def _usuario_logado(request: Request) -> dict:
 def exportar_meus_dados(request: Request):
     """LGPD: o titular baixa todos os dados pessoais que o servidor guarda sobre ele."""
     usuario = _usuario_logado(request)
-    if usuario.get("provider") != "senha":
-        return {"conta": {k: usuario.get(k) for k in ("provider", "name", "email")}, "observacao": "Conta de provedor externo: o servidor guarda apenas a sessão."}
     dados = contas.exportar_dados(usuario["id"])
     if not dados:
         raise HTTPException(404, "Conta não encontrada.")
@@ -285,8 +260,6 @@ def exportar_meus_dados(request: Request):
 def excluir_minha_conta(request: Request, dados: DadosExclusao):
     """LGPD: exclusão da conta e dos dados ligados a ela, confirmada com a senha."""
     usuario = _usuario_logado(request)
-    if usuario.get("provider") != "senha":
-        raise HTTPException(400, "Esta conta não tem dados guardados além da sessão; basta sair.")
     chave = f"excluir:{usuario['id']}"
     bloqueio = limite_exclusao.segundos_bloqueado(chave)
     if bloqueio:
@@ -302,8 +275,7 @@ def excluir_minha_conta(request: Request, dados: DadosExclusao):
 def aceitar_politica(request: Request):
     """Registra o aceite da política atual por contas criadas antes dela."""
     usuario = _usuario_logado(request)
-    if usuario.get("provider") == "senha":
-        contas.registrar_consentimento(usuario["id"], VERSAO_POLITICA)
+    contas.registrar_consentimento(usuario["id"], VERSAO_POLITICA)
     return {"detail": "Consentimento registrado.", "version": VERSAO_POLITICA}
 
 
@@ -311,7 +283,7 @@ def aceitar_politica(request: Request):
 def pagina_privacidade():
     # O contato do controlador vem do .env, para não deixar um e-mail fixo no código.
     contato = os.getenv("PRIVACIDADE_CONTATO") or os.getenv("SMTP_FROM") or os.getenv("SMTP_USER") or "o responsável pelo projeto"
-    html = (PASTA_FRONTEND / "privacidade.html").read_text(encoding="utf-8")
+    html = (PASTA_FRONTEND / "privacidade" / "privacidade.html").read_text(encoding="utf-8")
     html = html.replace("{{CONTATO}}", escape(contato)).replace("{{VERSAO}}", VERSAO_POLITICA)
     return HTMLResponse(html)
 
@@ -322,8 +294,6 @@ def trocar_senha(request: Request, dados: DadosTrocaSenha):
     usuario = usuario_da_sessao(request)
     if not usuario:
         raise HTTPException(401, "Faça login para continuar.")
-    if usuario.get("provider") != "senha":
-        raise HTTPException(400, "Esta conta entra por um provedor externo e não tem senha própria.")
     chaves = (f"ip:{_ip(request)}", f"email:{normalizar_email(usuario['email'])}")
     bloqueio = limite_login.segundos_bloqueado(*chaves)
     if bloqueio:
@@ -471,65 +441,10 @@ def redefinir_senha(request: Request, dados: DadosNovaSenha):
     return {"authenticated": True, "user": usuario}
 
 
-# Precisa vir antes de /auth/{provider}, senão "logout" é tratado como nome de provedor.
 @app.get("/auth/logout")
 def sair(request: Request):
     request.session.clear()
     return RedirectResponse("/login", status_code=303)
-
-
-@app.get("/auth/{provider}")
-async def iniciar_login_oauth(request: Request, provider: str):
-    if provider not in PROVEDORES_OAUTH:
-        raise HTTPException(404, "Provedor de login desconhecido.")
-    variaveis = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET") if provider == "google" else ("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET")
-    if not all(os.getenv(nome) for nome in variaveis):
-        return RedirectResponse(f"/login?error={provider}_not_configured", status_code=303)
-    callback = request.url_for("callback_oauth", provider=provider)
-    return await getattr(oauth, provider).authorize_redirect(request, callback)
-
-
-@app.get("/auth/callback/{provider}", name="callback_oauth")
-async def callback_oauth(request: Request, provider: str):
-    if provider not in PROVEDORES_OAUTH:
-        raise HTTPException(404, "Provedor de login desconhecido.")
-    cliente = getattr(oauth, provider)
-    try:
-        if provider == "github":
-            token = await cliente.authorize_access_token(request, headers={"Accept": "application/json"})
-        else:
-            token = await cliente.authorize_access_token(request)
-        if provider == "google":
-            perfil = token.get("userinfo") or await cliente.userinfo(token=token)
-            usuario = {
-                "provider": "google",
-                "id": str(perfil.get("sub", "")),
-                "name": perfil.get("name") or perfil.get("email") or "Usuário Google",
-                "email": perfil.get("email"),
-                "avatar": perfil.get("picture"),
-            }
-        else:
-            perfil = (await cliente.get("user", token=token)).json()
-            resposta_emails = await cliente.get("user/emails", token=token)
-            emails = resposta_emails.json() if resposta_emails.is_success else []
-            email = perfil.get("email")
-            if not email:
-                email_primario = next((item for item in emails if item.get("primary") and item.get("verified")), None)
-                email = email_primario.get("email") if email_primario else None
-            usuario = {
-                "provider": "github",
-                "id": str(perfil.get("id", "")),
-                "name": perfil.get("name") or perfil.get("login") or "Usuário GitHub",
-                "email": email,
-                "avatar": perfil.get("avatar_url"),
-            }
-    except Exception:
-        # Não expor códigos OAuth ou respostas dos provedores na URL exibida ao usuário.
-        logger.exception("Falha ao concluir autenticação OAuth com %s", provider)
-        request.session.pop("user", None)
-        return RedirectResponse("/login?error=oauth_failed", status_code=303)
-    iniciar_sessao(request, usuario)
-    return RedirectResponse("/", status_code=303)
 
 
 @app.get("/api/health")

@@ -43,10 +43,15 @@ class TestAutenticacao(unittest.TestCase):
         resposta = self.cliente.get("/", follow_redirects=False)
         self.assertEqual(resposta.status_code, 303)
         self.assertEqual(resposta.headers["location"], "/login")
-        self.assertEqual(self.cliente.get("/static/app.js", follow_redirects=False).status_code, 303)
+        self.assertEqual(self.cliente.get("/static/laboratorio/app.js", follow_redirects=False).status_code, 303)
         self.assertEqual(self.cliente.post("/api/processar").status_code, 401)
         self.assertEqual(self.cliente.get("/login").status_code, 200)
-        self.assertEqual(self.cliente.get("/static/login.js").status_code, 200)
+        self.assertEqual(self.cliente.get("/static/login/login.js").status_code, 200)
+        # Cada página tem sua pasta: login e privacidade são públicos; o laboratório exige login.
+        for publico in ("/static/login/login.css", "/static/login/login-hero.jpg", "/static/privacidade/privacidade.css"):
+            self.assertEqual(self.cliente.get(publico).status_code, 200, publico)
+        for privado in ("/static/laboratorio/style.css", "/static/laboratorio/fundamentos/06-ocr.webp"):
+            self.assertEqual(self.cliente.get(privado, follow_redirects=False).status_code, 303, privado)
 
     def test_login_libera_laboratorio_e_logout_bloqueia(self):
         self.assertEqual(self.entrar(email="  ADMIN@exemplo.com ").status_code, 200)

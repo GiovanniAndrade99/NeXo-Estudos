@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="/static/laboratorio/style.css">
+  <script src="/static/laboratorio/app.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -320,37 +320,37 @@
 
         <div class="topic-grid">
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/01-imagem-digital.webp" alt="Página fotografada e ampliação de uma letra mostrando a grade de pixels com seus valores de intensidade" loading="lazy" width="726" height="400"><figcaption>zoom nos pixels</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/01-imagem-digital.webp" alt="Página fotografada e ampliação de uma letra mostrando a grade de pixels com seus valores de intensidade" loading="lazy" width="726" height="400"><figcaption>zoom nos pixels</figcaption></figure>
             <span class="topic-tag">01</span>
             <h3>Imagem digital</h3>
             <p>Representa a cena por matrizes de pixels, onde cada elemento possui intensidade e cor. Esse formato permite aplicar algoritmos computacionais para extrair informações.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/02-escala-cinza.webp" alt="A mesma página colorida e convertida para tons de cinza" loading="lazy" width="726" height="400"><figcaption>colorida → cinza</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/02-escala-cinza.webp" alt="A mesma página colorida e convertida para tons de cinza" loading="lazy" width="726" height="400"><figcaption>colorida → cinza</figcaption></figure>
             <span class="topic-tag">02</span>
             <h3>Escala de cinza</h3>
             <p>Reduz a informação colorida para intensidade luminosa, simplificando a análise e reduzindo variações que não ajudam no reconhecimento do texto.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/03-contraste-ruido.webp" alt="Trecho da página com sombra antes e depois da normalização de iluminação e do filtro mediano" loading="lazy" width="726" height="400"><figcaption>sombra → luz uniforme</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/03-contraste-ruido.webp" alt="Trecho da página com sombra antes e depois da normalização de iluminação e do filtro mediano" loading="lazy" width="726" height="400"><figcaption>sombra → luz uniforme</figcaption></figure>
             <span class="topic-tag">03</span>
             <h3>Contraste e ruído</h3>
             <p>A normalização de iluminação estima o fundo do papel e divide a imagem por ele, removendo sombras e deixando o contraste uniforme; o filtro mediano remove detalhes pontuais que dificultam a leitura.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/04-binarizacao.webp" alt="Página em tons de cinza e o resultado binarizado em preto e branco" loading="lazy" width="726" height="400"><figcaption>antes → binária</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/04-binarizacao.webp" alt="Página em tons de cinza e o resultado binarizado em preto e branco" loading="lazy" width="726" height="400"><figcaption>antes → binária</figcaption></figure>
             <span class="topic-tag">04</span>
             <h3>Binarização</h3>
             <p>Converte a imagem em preto e branco, separando melhor os traços do texto do fundo. Isso melhora a precisão do reconhecimento por OCR.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/05-inclinacao.webp" alt="Página inclinada ao lado da versão alinhada, com linhas-guia horizontais" loading="lazy" width="726" height="400"><figcaption>antes → alinhada</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/05-inclinacao.webp" alt="Página inclinada ao lado da versão alinhada, com linhas-guia horizontais" loading="lazy" width="726" height="400"><figcaption>antes → alinhada</figcaption></figure>
             <span class="topic-tag">05</span>
             <h3>Correção de inclinação</h3>
             <p>Quando a página está torta, o texto pode ficar distorcido. A correção angular ajuda a alinhar as linhas, melhorando o reconhecimento automático.</p>
           </article>
           <article class="topic-card" data-reveal>
-            <figure class="topic-figure"><img src="/static/fundamentos/06-ocr.webp" alt="Palavras reconhecidas marcadas na página e o texto extraído pelo Tesseract" loading="lazy" width="726" height="400"><figcaption>antes → texto extraído</figcaption></figure>
+            <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/06-ocr.webp" alt="Palavras reconhecidas marcadas na página e o texto extraído pelo Tesseract" loading="lazy" width="726" height="400"><figcaption>antes → texto extraído</figcaption></figure>
             <span class="topic-tag">06</span>
             <h3>OCR</h3>
             <p>O reconhecimento óptico de caracteres interpreta formas e tenta converter as letras em texto legível. A qualidade da imagem diretamente influencia o resultado final.</p>

@@ -15,7 +15,7 @@ from backend.processamento import (  # noqa: E402
     _configurar_tesseract, _corrigir_inclinacao, _normalizar_iluminacao,
 )
 
-SAIDA = RAIZ / "frontend" / "fundamentos"
+SAIDA = RAIZ / "frontend" / "laboratorio" / "fundamentos"
 SAIDA.mkdir(exist_ok=True)
 W, H = 360, 400  # cada metade do quadro
 rng = np.random.default_rng(7)

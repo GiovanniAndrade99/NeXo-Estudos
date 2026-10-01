@@ -95,13 +95,23 @@ Salve as capturas da interface em `docs/screenshots/` e atualize esta secao com 
 ```text
 backend/
   main.py             # API FastAPI, conversao de PDF e servidor do frontend
-  contas.py           # contas, login e recuperacao de senha
+  contas.py           # contas, login, recuperacao de senha e envio de e-mail
   processamento.py    # processamento de imagem e OCR
-frontend/
-  index.html
-  app.js
-  style.css
-  fundamentos/        # imagens de exemplo da aba Fundamentos
+  seguranca.py        # headers, checagem de origem (CSRF) e reCAPTCHA
+frontend/             # uma pasta por pagina, com o HTML, o JS, o CSS e as imagens que ela usa
+  laboratorio/        # app principal (exige login)
+    index.html
+    app.js
+    style.css
+    fundamentos/      # imagens de exemplo da aba Fundamentos
+  login/              # tela de entrada, cadastro e recuperacao de senha (publica)
+    login.html
+    login.js
+    login.css
+    login-hero.jpg
+  privacidade/        # Politica de Privacidade da LGPD (publica)
+    privacidade.html
+    privacidade.css
 docs/
   PIPELINE.md         # funcionamento, pipeline e integracao com IA
   AVALIACAO.md        # avaliacao com o dataset FUNSD
@@ -113,6 +123,8 @@ tests/
   test_assistente_estudos.py
   test_autenticacao.py
   test_processamento.py
+  test_compartilhamento.py
+  test_seguranca.py
 requirements.txt
 README.md
 ```
