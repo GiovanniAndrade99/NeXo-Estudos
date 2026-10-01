@@ -732,3 +732,13 @@ button,input {
   }
   .auth-story .story-copy h1 { font-size: 34px; }
 }
+
+/* LGPD e reCAPTCHA. */
+.consent-row { align-items: flex-start; line-height: 1.5; }
+.consent-row .custom-check { flex: 0 0 auto; margin-top: 2px; }
+.consent-row a { color: #1769e8; font-weight: 700; text-decoration: none; }
+.consent-row a:hover { text-decoration: underline; }
+.captcha-box { margin: 6px 0 4px; min-height: 78px; }
+.captcha-box[hidden] { display: none; }
+.auth-legal a { text-decoration: none; }
+.auth-legal a:hover { text-decoration: underline; }

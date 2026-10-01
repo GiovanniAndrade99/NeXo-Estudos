@@ -5,8 +5,6 @@ const errorMessage = document.querySelector("#error-message");
 const uploadedFilesSummary = document.querySelector("#uploaded-files-summary");
 const selectedCount = document.querySelector("#selected-count");
 const acceptedTypes = ["image/png", "image/jpeg", "image/bmp", "image/tiff", "image/webp", "application/pdf"];
-const compareLeft = document.querySelector("#compare-left");
-const compareRight = document.querySelector("#compare-right");
 let processedAssets = [];
 let selectedFiles = [];
 
@@ -83,7 +81,104 @@ function preencherConta(user, conta, nome) {
   document.querySelector("#settings-session").textContent = data(conta.session_expires_at, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   // Contas de provedor externo não têm senha própria para trocar.
   if (user.provider !== "senha") document.querySelector(".password-card").hidden = true;
+
+  const politicaAceita = conta.privacy_accepted_at && conta.privacy_version === conta.privacy_current_version;
+  document.querySelector("#privacy-status").textContent = politicaAceita
+    ? `Aceita em ${data(conta.privacy_accepted_at, { day: "2-digit", month: "2-digit", year: "numeric" })}`
+    : "Versão atual não aceita";
+  document.querySelector("#privacy-consent").hidden = Boolean(politicaAceita) || user.provider !== "senha";
+  if (user.provider !== "senha") document.querySelector("#privacy-delete-open").hidden = true;
 }
+
+// LGPD: baixar os próprios dados, apagar o histórico local e excluir a conta.
+function showPrivacyMessage(text, type = "error") {
+  const box = document.querySelector("#privacy-message");
+  box.textContent = text;
+  box.dataset.type = type;
+  box.hidden = false;
+}
+
+function clearLocalHistory() {
+  localStorage.removeItem("process-history");
+  return new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase("nexo-estudos-history");
+    request.onsuccess = request.onerror = request.onblocked = () => resolve();
+  });
+}
+
+document.querySelector("#privacy-export")?.addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/conta/dados");
+    if (!response.ok) throw new Error();
+    const dados = await response.json();
+    dados.historico_neste_navegador = getHistoryRecords();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" }));
+    link.download = "meus-dados-nexo-estudos.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showPrivacyMessage("Arquivo com seus dados baixado.", "success");
+  } catch {
+    showPrivacyMessage("Não foi possível baixar seus dados agora.");
+  }
+});
+
+document.querySelector("#privacy-clear-history")?.addEventListener("click", async () => {
+  if (!window.confirm("Apagar todo o histórico de imagens guardado neste navegador?")) return;
+  await clearLocalHistory();
+  renderHistory([]);
+  renderHistoricMenu();
+  await refreshHistoryComparison();
+  showPrivacyMessage("Histórico deste navegador apagado.", "success");
+});
+
+document.querySelector("#privacy-accept")?.addEventListener("click", async () => {
+  window.open("/privacidade", "_blank", "noopener");
+  if (!window.confirm("Você leu e aceita a Política de Privacidade?")) return;
+  const response = await fetch("/api/conta/consentimento", { method: "POST" }).catch(() => null);
+  if (response?.ok) {
+    document.querySelector("#privacy-consent").hidden = true;
+    document.querySelector("#privacy-status").textContent = `Aceita em ${new Date().toLocaleDateString("pt-BR")}`;
+    showPrivacyMessage("Consentimento registrado.", "success");
+  } else {
+    showPrivacyMessage("Não foi possível registrar o consentimento agora.");
+  }
+});
+
+const deleteForm = document.querySelector("#delete-account-form");
+document.querySelector("#privacy-delete-open")?.addEventListener("click", () => {
+  deleteForm.hidden = false;
+  deleteForm.querySelector("input").focus();
+});
+document.querySelector("#privacy-delete-cancel")?.addEventListener("click", () => {
+  deleteForm.reset();
+  deleteForm.hidden = true;
+});
+deleteForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const senha = deleteForm.elements.password.value;
+  if (!senha) return showPrivacyMessage("Digite sua senha para confirmar.");
+  const botao = deleteForm.querySelector("button[type=submit]");
+  botao.disabled = true;
+  try {
+    const response = await fetch("/api/conta/excluir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: senha })
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      deleteForm.elements.password.value = "";
+      return showPrivacyMessage(typeof dados.detail === "string" ? dados.detail : "Não foi possível excluir a conta.");
+    }
+    await clearLocalHistory();
+    window.location.replace("/login");
+  } catch {
+    showPrivacyMessage("Não foi possível conectar ao servidor.");
+  } finally {
+    botao.disabled = false;
+  }
+});
 
 const passwordForm = document.querySelector("#password-form");
 passwordForm?.addEventListener("submit", async (evento) => {
@@ -166,7 +261,7 @@ function updateUploadSummary() {
 
   selectedCount.textContent = `${selectedFiles.length} selecionada${selectedFiles.length > 1 ? "s" : ""}`;
   uploadedFilesSummary.innerHTML = selectedFiles.map((file) => `
-    <li>${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB</li>
+    <li>${escapeHtml(file.name)} · ${(file.size / 1024 / 1024).toFixed(2)} MB</li>
   `).join("");
 }
 
@@ -320,6 +415,7 @@ function historyItemMarkup(item, index) {
           <option value="json">JSON</option>
         </select>
         <button class="history-save-button" type="button" data-history-save="${index}">Salvar como <span>&darr;</span></button>
+        <button class="history-save-button history-email-button" type="button" data-history-email="${index}" aria-label="Enviar ${name} por e-mail">Enviar por e-mail <span>&#9993;</span></button>
       </div>
     </div>
   `;
@@ -360,6 +456,87 @@ document.addEventListener("click", (event) => {
   if (item) saveHistoryItem(item, format);
 });
 
+// Envio de um registro do histórico por e-mail (POST /api/historico/enviar).
+const shareDialog = document.querySelector("#share-dialog");
+const shareForm = document.querySelector("#share-form");
+let shareRecord = null;
+
+function showShareMessage(text, type = "error") {
+  const box = shareForm.querySelector(".settings-message");
+  box.textContent = text;
+  box.dataset.type = type;
+  box.hidden = false;
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-email]");
+  if (!button || !shareDialog) return;
+  shareRecord = getHistoryRecords()[Number(button.dataset.historyEmail)] || null;
+  if (!shareRecord) return;
+  shareForm.reset();
+  shareForm.querySelector(".settings-message").hidden = true;
+  document.querySelector("#share-item-name").textContent = shareRecord.name;
+  const attach = document.querySelector("#share-attach");
+  attach.disabled = !shareRecord.imageId;
+  attach.checked = Boolean(shareRecord.imageId);
+  shareDialog.showModal();
+  document.querySelector("#share-to").focus();
+});
+
+shareForm?.querySelector("[data-share-cancel]").addEventListener("click", () => shareDialog.close());
+
+shareForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!shareRecord) return;
+  const to = shareForm.elements.to.value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return showShareMessage("Informe um e-mail de destino válido.");
+  const button = shareForm.querySelector("button[type=submit]");
+  button.disabled = true;
+  showShareMessage("Enviando…", "info");
+  try {
+    const assistant = shareRecord.assistente || {};
+    const texto = (valor, limite) => (typeof valor === "string" ? valor : "").slice(0, limite);
+    let imagem = null;
+    if (shareForm.elements.attach.checked && shareRecord.imageId) {
+      imagem = await loadHistoryImage(shareRecord.imageId).catch(() => null);
+    }
+    const response = await fetch("/api/historico/enviar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinatario: to,
+        mensagem: shareForm.elements.message.value.slice(0, 1000),
+        imagem,
+        registro: {
+          nome: texto(shareRecord.name, 300),
+          dimensoes: texto(shareRecord.dimensions, 60),
+          tempo_ms: Number.isFinite(shareRecord.time) ? shareRecord.time : null,
+          data: texto(shareRecord.date, 60),
+          status: texto(shareRecord.status, 60),
+          assistente: {
+            livro: texto(assistant.livro, 300),
+            autor: texto(assistant.autor, 300),
+            resumo_estudo: texto(assistant.resumo_estudo, 4000),
+            exercicios_revisao: (assistant.exercicios_revisao || []).filter((e) => typeof e === "string").slice(0, 10)
+          }
+        }
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      showShareMessage(data.detail || "E-mail enviado.", "success");
+      shareForm.elements.to.value = "";
+      shareForm.elements.message.value = "";
+    } else {
+      showShareMessage(typeof data.detail === "string" ? data.detail : "Não foi possível enviar agora.");
+    }
+  } catch {
+    showShareMessage("Não foi possível conectar ao servidor.");
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function updateDetails(data, sourceFile = selectedFiles[0]) {
   const pixels = (data.dimensoes?.largura || 0) * (data.dimensoes?.altura || 0);
   document.querySelector("#processing-time").textContent = formatDuration(data.tempo_processamento_ms);
@@ -393,14 +570,15 @@ function renderAssistenteEstudos(assistente) {
     ? assistente.figuras
     : ["Resumo visual", "Tema principal", "Exercícios de revisão"];
 
-  assistantFigures.innerHTML = figuras.slice(0, 4).map((figura) => `<li>${figura}</li>`).join("");
+  // As figuras vêm de linhas do OCR: texto da imagem nunca pode virar HTML.
+  assistantFigures.innerHTML = figuras.slice(0, 4).map((figura) => `<li>${escapeHtml(figura)}</li>`).join("");
   studySummary.textContent = assistente.resumo_estudo || "O assistente não gerou um resumo para esta imagem.";
 
   const exercicios = Array.isArray(assistente.exercicios_revisao) && assistente.exercicios_revisao.length
     ? assistente.exercicios_revisao
     : ["Revise os conceitos principais da imagem e descreva com suas próprias palavras o tema central."];
 
-  studyExercises.innerHTML = exercicios.slice(0, 3).map((item) => `<li>${item}</li>`).join("");
+  studyExercises.innerHTML = exercicios.slice(0, 3).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 }
 
 function getHistoryRecords() {
@@ -411,8 +589,7 @@ function renderHistoricMenu() {
   const records = getHistoryRecords();
   const historicTargets = [
     document.querySelector("#history-result-list"),
-    document.querySelector("#history-menu-list"),
-    document.querySelector("#comparison-history-list")
+    document.querySelector("#history-menu-list")
   ].filter(Boolean);
 
   historicTargets.forEach((list) => {
@@ -491,6 +668,10 @@ async function saveProcessedImagesToHistory(assets, existingRecords) {
     status: asset.ocr_disponivel ? "OCR OK" : "PROCESSADO",
     date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
     assistente: asset.assistente_estudos || {},
+    // Dados usados no resumo da aba Comparar.
+    inclinacao: asset.inclinacao_corrigida_graus ?? null,
+    palavras: (asset.texto || "").split(/\s+/).filter(Boolean).length,
+    trecho: (asset.texto || "").trim().slice(0, 400),
     sourceImage: asset.imagens.original
   }));
   const retainedNewRecords = newRecords.slice(0, 8);
@@ -517,47 +698,216 @@ async function saveProcessedImagesToHistory(assets, existingRecords) {
   return storageFailed;
 }
 
+// Seleção da comparação: imageId escolhido para cada lado, escolhido numa lista suspensa por lado.
+const comparisonSelection = { A: null, B: null };
+const comparePickers = [...document.querySelectorAll("[data-picker]")];
+const historyThumbs = new Map();
+
 async function refreshHistoryComparison() {
   const records = getHistoryRecords();
   const imageRecords = records.filter((record) => record.imageId);
-  const buildHistoryOptions = () => imageRecords.map((record) =>
-    new Option(`${record.name} | ${formatDuration(record.time)} | ${record.date}`, record.imageId)
-  );
-  compareLeft.replaceChildren(...buildHistoryOptions());
-  compareRight.replaceChildren(...buildHistoryOptions());
-  compareLeft.disabled = imageRecords.length < 2;
-  compareRight.disabled = imageRecords.length < 2;
-  document.querySelector(".user-comparison").hidden = imageRecords.length < 2;
-  document.querySelector("#comparison-empty").hidden = imageRecords.length >= 2;
-  document.querySelector("#history-comparison-status").textContent = "";
-
-  if (imageRecords.length < 2) {
-    document.querySelector("#comparison-empty").textContent = records.length
-      ? "Reprocesse imagens antigas para salva-las e habilitar a comparacao."
-      : "Processe imagens para adiciona-las ao historico e compara-las.";
-    document.querySelector("#compare-left-image").removeAttribute("src");
-    document.querySelector("#compare-right-image").removeAttribute("src");
-    return;
+  const ids = new Set(imageRecords.map((record) => record.imageId));
+  // Mantém a escolha atual se as imagens ainda existem; senão, as duas mais recentes.
+  if (!ids.has(comparisonSelection.A)) comparisonSelection.A = imageRecords[0]?.imageId || null;
+  if (!ids.has(comparisonSelection.B) || comparisonSelection.B === comparisonSelection.A) {
+    comparisonSelection.B = imageRecords.find((record) => record.imageId !== comparisonSelection.A)?.imageId || null;
   }
 
-  compareLeft.value = imageRecords[0].imageId;
-  compareRight.value = imageRecords[1].imageId;
-  compareLeft.onchange = updateHistoryComparison;
-  compareRight.onchange = updateHistoryComparison;
+  comparePickers.forEach((picker) => {
+    picker.querySelector(".picker-button").disabled = imageRecords.length < 2;
+    picker.querySelector(".picker-list").innerHTML = imageRecords.map((record) => `
+      <li role="option" class="picker-option" data-image-id="${escapeHtml(record.imageId)}" aria-selected="false">
+        <span class="picker-thumb"><img alt="" data-thumb="${escapeHtml(record.imageId)}"></span>
+        <span class="picker-text"><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.date)} · ${formatDuration(record.time)}</small></span>
+        <svg class="picker-check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+      </li>
+    `).join("");
+  });
+  imageRecords.forEach((record) => {
+    loadHistoryImage(record.imageId).then((dataUrl) => {
+      if (!dataUrl) return;
+      historyThumbs.set(record.imageId, dataUrl);
+      document.querySelectorAll(`[data-thumb="${CSS.escape(record.imageId)}"]`).forEach((img) => { img.src = dataUrl; });
+      updateComparisonLabels();
+    }).catch(() => {});
+  });
+
+  const empty = document.querySelector("#comparison-empty");
+  empty.hidden = imageRecords.length >= 2;
+  document.querySelector("#history-comparison-status").textContent = "";
+  if (imageRecords.length < 2) {
+    empty.textContent = imageRecords.length === 1
+      ? "Processe mais uma imagem para poder comparar."
+      : records.length
+        ? "Reprocesse imagens antigas para salvá-las e habilitar a comparação."
+        : "Processe imagens para adicioná-las ao histórico e compará-las.";
+    document.querySelector(".user-comparison").hidden = true;
+    document.querySelector("#compare-summary").hidden = true;
+    updateComparisonLabels();
+    return;
+  }
   await updateHistoryComparison();
 }
 
+function updateComparisonLabels() {
+  const records = getHistoryRecords();
+  comparePickers.forEach((picker) => {
+    const slot = picker.dataset.picker;
+    const record = records.find((item) => item.imageId === comparisonSelection[slot]);
+    const button = picker.querySelector(".picker-button");
+    button.querySelector(".picker-text strong").textContent = record?.name || "Nenhuma selecionada";
+    button.querySelector(".picker-text small").textContent = record ? `${record.date} · ${formatDuration(record.time)}` : "";
+    const thumb = button.querySelector(".picker-thumb img");
+    const dataUrl = record && historyThumbs.get(record.imageId);
+    if (dataUrl) thumb.src = dataUrl; else thumb.removeAttribute("src");
+    picker.querySelectorAll(".picker-option").forEach((option) => {
+      option.setAttribute("aria-selected", String(option.dataset.imageId === comparisonSelection[slot]));
+    });
+  });
+}
+
+function closePicker(picker, focusButton = false) {
+  const list = picker.querySelector(".picker-list");
+  if (list.hidden) return;
+  list.hidden = true;
+  picker.querySelector(".picker-button").setAttribute("aria-expanded", "false");
+  picker.classList.remove("open");
+  if (focusButton) picker.querySelector(".picker-button").focus();
+}
+
+function openPicker(picker) {
+  comparePickers.forEach((other) => other !== picker && closePicker(other));
+  const list = picker.querySelector(".picker-list");
+  list.hidden = false;
+  picker.classList.add("open");
+  picker.querySelector(".picker-button").setAttribute("aria-expanded", "true");
+  const options = [...list.querySelectorAll(".picker-option")];
+  highlightOption(picker, Math.max(0, options.findIndex((o) => o.getAttribute("aria-selected") === "true")));
+  list.focus();
+}
+
+function highlightOption(picker, index) {
+  const options = [...picker.querySelectorAll(".picker-option")];
+  if (!options.length) return;
+  const alvo = options[(index + options.length) % options.length];
+  options.forEach((option) => option.classList.toggle("active", option === alvo));
+  alvo.id ||= `opcao-${picker.dataset.picker}-${options.indexOf(alvo)}`;
+  picker.querySelector(".picker-list").setAttribute("aria-activedescendant", alvo.id);
+  alvo.scrollIntoView({ block: "nearest" });
+}
+
+function chooseForSlot(slot, id) {
+  const other = slot === "A" ? "B" : "A";
+  // Escolher num lado a imagem que já está no outro troca os dois lados.
+  if (comparisonSelection[other] === id) comparisonSelection[other] = comparisonSelection[slot];
+  comparisonSelection[slot] = id;
+  updateHistoryComparison();
+}
+
+comparePickers.forEach((picker) => {
+  const button = picker.querySelector(".picker-button");
+  const list = picker.querySelector(".picker-list");
+  button.addEventListener("click", () => (list.hidden ? openPicker(picker) : closePicker(picker)));
+  button.addEventListener("keydown", (event) => {
+    if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); openPicker(picker); }
+  });
+  list.addEventListener("click", (event) => {
+    const option = event.target.closest(".picker-option");
+    if (!option) return;
+    chooseForSlot(picker.dataset.picker, option.dataset.imageId);
+    closePicker(picker, true);
+  });
+  list.addEventListener("keydown", (event) => {
+    const options = [...list.querySelectorAll(".picker-option")];
+    const atual = options.findIndex((option) => option.classList.contains("active"));
+    if (event.key === "ArrowDown") { event.preventDefault(); highlightOption(picker, atual + 1); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); highlightOption(picker, atual - 1); }
+    else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (options[atual]) chooseForSlot(picker.dataset.picker, options[atual].dataset.imageId);
+      closePicker(picker, true);
+    } else if (event.key === "Escape" || event.key === "Tab") {
+      closePicker(picker, event.key === "Escape");
+    }
+  });
+});
+
+document.addEventListener("click", (event) => {
+  comparePickers.forEach((picker) => { if (!picker.contains(event.target)) closePicker(picker); });
+});
+
+// Tabela A x B com o resumo de cada processamento. "melhor" indica qual lado ganha o selo da linha.
+function renderComparisonSummary(left, right) {
+  const semDado = '<span class="summary-missing" title="Registro anterior a este recurso: processe a imagem de novo para ver.">—</span>';
+  const numero = (valor) => (Number.isFinite(Number(valor)) && valor !== null ? Number(valor) : null);
+  const graus = (valor) => (numero(valor) === null ? null : `${Math.abs(numero(valor)).toFixed(1).replace(".", ",")}°`);
+  const assistenteDe = (record) => record.assistente || {};
+  const linhas = [
+    { item: "Dimensões", valor: (r) => r.dimensions },
+    {
+      item: "Tempo de processamento",
+      valor: (r) => (numero(r.time) === null ? null : formatDuration(r.time)),
+      comparar: (r) => numero(r.time), melhor: "menor", selo: "mais rápido"
+    },
+    {
+      item: "Inclinação corrigida",
+      valor: (r) => graus(r.inclinacao),
+      comparar: (r) => (numero(r.inclinacao) === null ? null : Math.abs(numero(r.inclinacao))), melhor: "menor", selo: "foto mais reta"
+    },
+    {
+      item: "Palavras reconhecidas",
+      valor: (r) => (numero(r.palavras) === null ? null : numero(r.palavras).toLocaleString("pt-BR")),
+      comparar: (r) => numero(r.palavras), melhor: "maior", selo: "mais texto"
+    },
+    { item: "Reconhecimento", valor: (r) => (r.status === "OCR OK" ? "Texto reconhecido" : r.status ? "Sem texto (OCR indisponível)" : null) },
+    { item: "Matéria identificada", valor: (r) => assistenteDe(r).livro },
+    { item: "Autor", valor: (r) => assistenteDe(r).autor },
+    { item: "Processado em", valor: (r) => r.date }
+  ];
+
+  document.querySelector("#compare-summary-rows").innerHTML = linhas.map((linha) => {
+    let vencedor = null;
+    if (linha.comparar) {
+      const [a, b] = [linha.comparar(left), linha.comparar(right)];
+      if (a !== null && b !== null && a !== b) {
+        vencedor = (linha.melhor === "menor" ? a < b : a > b) ? "A" : "B";
+      }
+    }
+    const celula = (record, lado) => {
+      const valor = linha.valor(record);
+      const selo = vencedor === lado ? ` <span class="summary-win slot-${lado.toLowerCase()}">${linha.selo}</span>` : "";
+      return `<td>${valor ? escapeHtml(valor) : semDado}${selo}</td>`;
+    };
+    return `<tr><th scope="row">${linha.item}</th>${celula(left, "A")}${celula(right, "B")}</tr>`;
+  }).join("");
+
+  [["A", left], ["B", right]].forEach(([lado, record]) => {
+    document.querySelector(`[data-summary-name="${lado}"]`).textContent = record.name;
+    document.querySelector(`[data-summary-study="${lado}"]`).textContent =
+      assistenteDe(record).resumo_estudo || "O assistente não gerou um resumo para esta imagem.";
+    const trecho = document.querySelector(`[data-summary-text="${lado}"]`);
+    trecho.textContent = record.trecho
+      ? record.trecho + (record.trecho.length >= 400 ? "…" : "")
+      : record.trecho === "" ? "Nenhum texto foi reconhecido nesta imagem." : "Trecho não registrado: processe a imagem de novo para vê-lo aqui.";
+    trecho.classList.toggle("is-empty", !record.trecho);
+  });
+  document.querySelector("#compare-summary").hidden = false;
+}
+
 async function updateHistoryComparison() {
-  const left = getHistoryRecords().find((record) => record.imageId === compareLeft.value);
-  const right = getHistoryRecords().find((record) => record.imageId === compareRight.value);
-  if (!left || !right) return;
-  if (left.imageId === right.imageId) {
+  updateComparisonLabels();
+  const records = getHistoryRecords();
+  const left = records.find((record) => record.imageId === comparisonSelection.A);
+  const right = records.find((record) => record.imageId === comparisonSelection.B);
+  if (!left || !right || left.imageId === right.imageId) {
     document.querySelector(".user-comparison").hidden = true;
-    document.querySelector("#history-comparison-status").textContent = "Escolha dois registros diferentes para comparar.";
+    document.querySelector("#compare-summary").hidden = true;
+    document.querySelector("#history-comparison-status").textContent = "Escolha duas imagens diferentes para comparar.";
     return;
   }
   document.querySelector(".user-comparison").hidden = false;
   document.querySelector("#history-comparison-status").textContent = "";
+  renderComparisonSummary(left, right);
   try {
     const [leftImage, rightImage] = await Promise.all([
       loadHistoryImage(left.imageId),

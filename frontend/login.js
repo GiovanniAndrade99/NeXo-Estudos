@@ -28,10 +28,45 @@ async function postJson(url, body) {
   return { ok: response.ok, status: response.status, detail, data };
 }
 
+// reCAPTCHA v2: só é carregado quando o servidor informa uma chave (RECAPTCHA_SITE_KEY no .env).
+const captchaWidgets = new Map();
+
+fetch("/api/auth/status")
+  .then((response) => response.json())
+  .then((status) => {
+    const siteKey = status.recaptcha_site_key;
+    if (!siteKey) return;
+    window.nexoRecaptchaPronto = () => {
+      document.querySelectorAll("[data-captcha]").forEach((box) => {
+        box.hidden = false;
+        captchaWidgets.set(box.closest("form"), window.grecaptcha.render(box, { sitekey: siteKey }));
+      });
+    };
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?onload=nexoRecaptchaPronto&render=explicit&hl=pt-BR";
+    script.async = true;
+    document.head.append(script);
+  })
+  .catch(() => {});
+
+function captchaToken(form) {
+  const widget = captchaWidgets.get(form);
+  return widget === undefined ? null : window.grecaptcha.getResponse(widget) || null;
+}
+
+function resetCaptcha(form) {
+  const widget = captchaWidgets.get(form);
+  if (widget !== undefined) window.grecaptcha.reset(widget);
+}
+
 // Desativa o botão enquanto o pedido está em andamento e mostra erros de rede no formulário.
 function handleSubmit(form, action) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (captchaWidgets.has(form) && !captchaToken(form)) {
+      showMessage(form, "Marque a caixa \"Não sou um robô\" para continuar.");
+      return;
+    }
     const button = form.querySelector(".submit-button");
     button.disabled = true;
     try {
@@ -40,6 +75,8 @@ function handleSubmit(form, action) {
       showMessage(form, "Não foi possível conectar ao servidor.");
     } finally {
       button.disabled = false;
+      // Cada resposta do reCAPTCHA vale uma vez: libera um novo desafio para a próxima tentativa.
+      resetCaptcha(form);
     }
   });
 }
@@ -91,6 +128,7 @@ handleSubmit(document.querySelector("#login-form"), async (form) => {
     email: form.email.value,
     password: form.password.value,
     remember: form.remember.checked,
+    captcha: captchaToken(form),
   });
   if (result.ok) {
     window.location.href = "/";
@@ -107,17 +145,23 @@ handleSubmit(document.querySelector("#login-form"), async (form) => {
 
 handleSubmit(document.querySelector("#signup-form"), async (form) => {
   if (!passwordsMatch(form)) return;
+  if (!form.accept_privacy.checked) {
+    showMessage(form, "Para criar a conta, leia e aceite a Política de Privacidade.");
+    return;
+  }
   const result = await postJson("/api/auth/signup", {
     name: form.name.value,
     email: form.email.value,
     password: form.password.value,
+    accept_privacy: true,
+    captcha: captchaToken(form),
   });
   if (result.ok) window.location.href = "/";
   else showMessage(form, result.detail);
 });
 
 handleSubmit(document.querySelector("#forgot-form"), async (form) => {
-  const result = await postJson("/api/auth/forgot", { email: form.email.value });
+  const result = await postJson("/api/auth/forgot", { email: form.email.value, captcha: captchaToken(form) });
   showMessage(form, result.detail, result.ok ? "success" : "error");
   if (result.ok) form.reset();
 });

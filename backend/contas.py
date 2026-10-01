@@ -25,7 +25,10 @@ import time
 RAIZ = Path(__file__).resolve().parent.parent
 TAMANHO_MINIMO_SENHA = 8
 VALIDADE_TOKEN_SEGUNDOS = 30 * 60
-_N, _R, _P = 2**14, 8, 1
+# Parâmetros do scrypt dentro da recomendação da OWASP (N=2^15, r=8, p=3: ~32 MiB por hash).
+# Hashes antigos (N=2^14, p=1) continuam válidos e são refeitos no próximo login.
+_N, _R, _P = 2**15, 8, 3
+_MEMORIA_MAXIMA_SCRYPT = 64 * 1024 * 1024
 _EMAIL_VALIDO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,7 @@ def normalizar_email(email: str) -> str:
 
 def gerar_hash_senha(senha: str) -> str:
     sal = secrets.token_bytes(16)
-    derivada = hashlib.scrypt(senha.encode(), salt=sal, n=_N, r=_R, p=_P)
+    derivada = hashlib.scrypt(senha.encode(), salt=sal, n=_N, r=_R, p=_P, maxmem=_MEMORIA_MAXIMA_SCRYPT)
     return f"scrypt${_N}${_R}${_P}${sal.hex()}${derivada.hex()}"
 
 
@@ -49,10 +52,20 @@ def verificar_senha(senha: str, hash_salvo: str) -> bool:
         algoritmo, n, r, p, sal, esperado = hash_salvo.split("$")
         if algoritmo != "scrypt":
             return False
-        derivada = hashlib.scrypt(senha.encode(), salt=bytes.fromhex(sal), n=int(n), r=int(r), p=int(p))
+        derivada = hashlib.scrypt(
+            senha.encode(), salt=bytes.fromhex(sal), n=int(n), r=int(r), p=int(p), maxmem=_MEMORIA_MAXIMA_SCRYPT,
+        )
     except (ValueError, TypeError):
         return False
     return hmac.compare_digest(derivada.hex(), esperado)
+
+
+def hash_desatualizado(hash_salvo: str) -> bool:
+    try:
+        _, n, r, p, _, _ = hash_salvo.split("$")
+        return (int(n), int(r), int(p)) != (_N, _R, _P)
+    except ValueError:
+        return True
 
 
 # Hash de referência para gastar o mesmo tempo quando o e-mail não existe.
@@ -63,9 +76,26 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def validar_senha_nova(senha: str) -> None:
+TAMANHO_MAXIMO_SENHA = 128
+# Senhas que aparecem no topo de todos os vazamentos públicos; recusadas mesmo tendo 8+ caracteres.
+SENHAS_COMUNS = {
+    "12345678", "123456789", "1234567890", "password", "password1", "senha123", "senha1234",
+    "qwerty123", "qwertyuiop", "11111111", "00000000", "abc12345", "iloveyou", "admin123",
+    "brasil123", "mudar123", "teste123", "87654321", "abcdefgh", "12341234",
+}
+
+
+def validar_senha_nova(senha: str, email: str = "") -> None:
     if len(senha) < TAMANHO_MINIMO_SENHA:
         raise ErroConta(f"A senha precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres.")
+    if len(senha) > TAMANHO_MAXIMO_SENHA:
+        raise ErroConta(f"A senha pode ter no máximo {TAMANHO_MAXIMO_SENHA} caracteres.")
+    if senha.lower() in SENHAS_COMUNS:
+        raise ErroConta("Essa senha é muito comum e fácil de adivinhar. Escolha outra.")
+    if email and senha.lower() == normalizar_email(email):
+        raise ErroConta("A senha não pode ser igual ao seu e-mail.")
+    if len(set(senha)) < 4:
+        raise ErroConta("A senha precisa variar mais os caracteres.")
 
 
 class RepositorioContas:
@@ -87,6 +117,12 @@ class RepositorioContas:
                     expira_em REAL NOT NULL
                 );
             """)
+            # Migração: bancos criados antes da LGPD não têm as colunas de consentimento.
+            colunas = {linha["name"] for linha in banco.execute("PRAGMA table_info(usuarios)")}
+            if "consentimento_em" not in colunas:
+                banco.execute("ALTER TABLE usuarios ADD COLUMN consentimento_em REAL")
+            if "versao_politica" not in colunas:
+                banco.execute("ALTER TABLE usuarios ADD COLUMN versao_politica TEXT")
 
     @contextmanager
     def _conectar(self):
@@ -108,18 +144,21 @@ class RepositorioContas:
         with self._conectar() as banco:
             return banco.execute("SELECT * FROM usuarios WHERE email = ?", (normalizar_email(email),)).fetchone()
 
-    def criar(self, nome: str, email: str, senha: str, papel: str = "usuario") -> dict:
+    def criar(self, nome: str, email: str, senha: str, papel: str = "usuario", versao_politica: str | None = None) -> dict:
         nome, email = (nome or "").strip(), normalizar_email(email)
         if not nome:
             raise ErroConta("Informe seu nome.")
-        if not _EMAIL_VALIDO.match(email):
+        if not email_valido(email):
             raise ErroConta("Informe um e-mail válido.")
-        validar_senha_nova(senha)
+        validar_senha_nova(senha, email)
+        agora = time.time()
         try:
             with self._conectar() as banco:
                 cursor = banco.execute(
-                    "INSERT INTO usuarios (email, nome, senha_hash, papel, criado_em) VALUES (?, ?, ?, ?, ?)",
-                    (email, nome[:80], gerar_hash_senha(senha), papel, time.time()),
+                    "INSERT INTO usuarios (email, nome, senha_hash, papel, criado_em, consentimento_em, versao_politica)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (email, nome[:80], gerar_hash_senha(senha), papel, agora,
+                     agora if versao_politica else None, versao_politica),
                 )
                 linha = banco.execute("SELECT * FROM usuarios WHERE id = ?", (cursor.lastrowid,)).fetchone()
         except sqlite3.IntegrityError as erro:
@@ -130,7 +169,7 @@ class RepositorioContas:
         """Cria o admin ou atualiza a senha e o papel de uma conta existente."""
         email = normalizar_email(email)
         if senha_hash is None:
-            validar_senha_nova(senha)
+            validar_senha_nova(senha, email)
             senha_hash = gerar_hash_senha(senha)
         with self._conectar() as banco:
             banco.execute(
@@ -143,11 +182,17 @@ class RepositorioContas:
         linha = self.buscar_por_email(email)
         # Verifica um hash mesmo sem conta, para não revelar pelo tempo de resposta se o e-mail existe.
         senha_ok = verificar_senha(senha, linha["senha_hash"] if linha else _HASH_FALSO)
-        return self._publico(linha) if linha and senha_ok else None
+        if not (linha and senha_ok):
+            return None
+        if hash_desatualizado(linha["senha_hash"]):
+            # A senha em texto só existe neste momento: aproveita para refazer o hash com o custo atual.
+            with self._conectar() as banco:
+                banco.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?", (gerar_hash_senha(senha), linha["id"]))
+        return self._publico(linha)
 
     def alterar_senha(self, email: str, senha_atual: str, senha_nova: str) -> bool:
         """Troca a senha de quem está logado. Devolve False se a senha atual não confere."""
-        validar_senha_nova(senha_nova)
+        validar_senha_nova(senha_nova, email)
         if not self.autenticar(email, senha_atual):
             return False
         if senha_nova == senha_atual:
@@ -157,6 +202,40 @@ class RepositorioContas:
             # Links de recuperação pendentes deixam de valer depois da troca.
             banco.execute("DELETE FROM tokens_senha WHERE usuario_id = (SELECT id FROM usuarios WHERE email = ?)", (normalizar_email(email),))
         return True
+
+    # As operações abaixo recebem o id de quem está logado (vindo da sessão, nunca do navegador)
+    # e toda consulta é filtrada por ele: é o equivalente, no código, ao Row Level Security.
+
+    def exportar_dados(self, usuario_id: int | str) -> dict | None:
+        """LGPD art. 18, II: todos os dados pessoais guardados sobre o titular, sem a senha."""
+        with self._conectar() as banco:
+            linha = banco.execute(
+                "SELECT id, email, nome, papel, criado_em, consentimento_em, versao_politica FROM usuarios WHERE id = ?",
+                (int(usuario_id),),
+            ).fetchone()
+            if not linha:
+                return None
+            pendentes = banco.execute(
+                "SELECT COUNT(*) FROM tokens_senha WHERE usuario_id = ? AND expira_em >= ?", (int(usuario_id), time.time())
+            ).fetchone()[0]
+        return {**dict(linha), "links_recuperacao_pendentes": pendentes}
+
+    def excluir(self, usuario_id: int | str, senha: str) -> bool:
+        """LGPD art. 18, VI: apaga a conta e tudo ligado a ela. Exige a senha atual."""
+        with self._conectar() as banco:
+            linha = banco.execute("SELECT senha_hash FROM usuarios WHERE id = ?", (int(usuario_id),)).fetchone()
+            if not linha or not verificar_senha(senha, linha["senha_hash"]):
+                return False
+            # tokens_senha é apagado junto pela chave estrangeira com ON DELETE CASCADE.
+            banco.execute("DELETE FROM usuarios WHERE id = ?", (int(usuario_id),))
+        return True
+
+    def registrar_consentimento(self, usuario_id: int | str, versao_politica: str) -> None:
+        with self._conectar() as banco:
+            banco.execute(
+                "UPDATE usuarios SET consentimento_em = ?, versao_politica = ? WHERE id = ?",
+                (time.time(), versao_politica, int(usuario_id)),
+            )
 
     def criar_token_recuperacao(self, email: str) -> str | None:
         linha = self.buscar_por_email(email)
@@ -222,26 +301,51 @@ class LimiteTentativas:
                 self._falhas.pop(chave, None)
 
 
-def enviar_link_recuperacao(email: str, link: str) -> None:
-    """Envia o link por SMTP; sem SMTP configurado, mostra o link no terminal do servidor."""
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        logger.warning("SMTP não configurado. Link de recuperação de senha para %s: %s", email, link)
-        return
+def email_valido(email: str) -> bool:
+    return bool(_EMAIL_VALIDO.match(normalizar_email(email)))
+
+
+def smtp_configurado() -> bool:
+    return bool(os.getenv("SMTP_HOST"))
+
+
+def enviar_email(
+    destinatario: str,
+    assunto: str,
+    corpo: str,
+    anexos: list[tuple[str, bytes, str]] = (),
+    responder_para: str | None = None,
+) -> None:
+    """Envia um e-mail pelo SMTP do .env. Cada anexo é (nome, conteúdo, tipo MIME)."""
     mensagem = EmailMessage()
-    mensagem["Subject"] = "Redefinição de senha - Nexo Estudos"
+    mensagem["Subject"] = assunto
     mensagem["From"] = os.getenv("SMTP_FROM") or os.getenv("SMTP_USER") or "nao-responda@localhost"
-    mensagem["To"] = email
-    mensagem.set_content(
-        "Recebemos um pedido para redefinir a senha da sua conta.\n\n"
-        f"Abra o link abaixo em até 30 minutos para criar uma nova senha:\n{link}\n\n"
-        "Se você não fez esse pedido, ignore este e-mail."
-    )
-    with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587")), timeout=15) as servidor:
+    mensagem["To"] = destinatario
+    if responder_para:
+        mensagem["Reply-To"] = responder_para
+    mensagem.set_content(corpo)
+    for nome, conteudo, tipo in anexos:
+        principal, secundario = tipo.split("/", 1)
+        mensagem.add_attachment(conteudo, maintype=principal, subtype=secundario, filename=nome)
+    with smtplib.SMTP(os.getenv("SMTP_HOST"), int(os.getenv("SMTP_PORT", "587")), timeout=15) as servidor:
         servidor.starttls()
         if os.getenv("SMTP_USER"):
             servidor.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD", ""))
         servidor.send_message(mensagem)
+
+
+def enviar_link_recuperacao(email: str, link: str) -> None:
+    """Envia o link por SMTP; sem SMTP configurado, mostra o link no terminal do servidor."""
+    if not smtp_configurado():
+        logger.warning("SMTP não configurado. Link de recuperação de senha para %s: %s", email, link)
+        return
+    enviar_email(
+        email,
+        "Redefinição de senha - Nexo Estudos",
+        "Recebemos um pedido para redefinir a senha da sua conta.\n\n"
+        f"Abra o link abaixo em até 30 minutos para criar uma nova senha:\n{link}\n\n"
+        "Se você não fez esse pedido, ignore este e-mail.",
+    )
 
 
 if __name__ == "__main__":

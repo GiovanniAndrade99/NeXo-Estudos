@@ -9,17 +9,25 @@ from time import perf_counter
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from html import escape
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 import cv2
 import fitz
 import numpy as np
-from pydantic import BaseModel
+import base64
+import binascii
 
-from .contas import ErroConta, LimiteTentativas, RepositorioContas, enviar_link_recuperacao, normalizar_email
+from pydantic import BaseModel, Field
+
+from .contas import (
+    ErroConta, LimiteTentativas, RepositorioContas, email_valido, enviar_email,
+    enviar_link_recuperacao, normalizar_email, smtp_configurado,
+)
 from .processamento import LIMITE_LADO, codificar_png, decodificar_imagem, processar, tesseract_disponivel
+from .seguranca import bloquear_outras_origens, chave_site_recaptcha, headers_de_seguranca, verificar_recaptcha
 
 RAIZ = Path(__file__).resolve().parent.parent
 PASTA_FRONTEND = RAIZ / "frontend"
@@ -30,13 +38,25 @@ MAX_PAGINAS_PDF = 10
 SESSAO_CURTA_SEGUNDOS = 8 * 60 * 60
 SESSAO_LONGA_SEGUNDOS = 30 * 24 * 60 * 60
 # Caminhos acessíveis sem login: a própria tela de login e as rotas de autenticação.
-ROTAS_PUBLICAS = {"/login", "/static/login.css", "/static/login.js", "/static/login-hero.jpg", "/api/health"}
+ROTAS_PUBLICAS = {
+    "/login", "/static/login.css", "/static/login.js", "/static/login-hero.jpg", "/api/health",
+    "/privacidade", "/static/privacidade.css",
+}
+# Versão da política de privacidade aceita no cadastro (LGPD); mude ao alterar o texto da política.
+VERSAO_POLITICA = "2026-10-01"
 PREFIXOS_PUBLICOS = ("/api/auth/", "/auth/")
 logger = logging.getLogger(__name__)
 
 contas = RepositorioContas(os.getenv("CONTAS_DB") or RAIZ / "contas.db")
 limite_login = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
 limite_recuperacao = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
+# Cada envio conta como uma "tentativa": no máximo 10 e-mails de histórico por usuário a cada hora.
+limite_compartilhamento = LimiteTentativas(maximo=10, bloqueio_segundos=60 * 60)
+# Cadastros por IP e processamentos por usuário também contam a cada pedido, com ou sem sucesso.
+limite_cadastro = LimiteTentativas(maximo=5, bloqueio_segundos=60 * 60)
+limite_processamento = LimiteTentativas(maximo=30, bloqueio_segundos=10 * 60)
+limite_exclusao = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
+TAMANHO_MAXIMO_IMAGEM_EMAIL = 3 * 1024 * 1024
 
 app = FastAPI(
     title="Laboratório de Processamento de Imagens",
@@ -87,6 +107,9 @@ app.add_middleware(
     max_age=SESSAO_LONGA_SEGUNDOS,
     https_only=os.getenv("COOKIE_HTTPS_ONLY", "false").lower() == "true",
 )
+# Rodam antes da sessão: barram pedidos de outros sites e põem os headers de segurança em toda resposta.
+app.add_middleware(BaseHTTPMiddleware, dispatch=bloquear_outras_origens)
+app.add_middleware(BaseHTTPMiddleware, dispatch=headers_de_seguranca)
 
 oauth = OAuth()
 oauth.register(
@@ -127,7 +150,9 @@ def status_autenticacao():
         "providers": {
             "google": bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET")),
             "github": bool(os.getenv("GITHUB_CLIENT_ID") and os.getenv("GITHUB_CLIENT_SECRET")),
-        }
+        },
+        "recaptcha_site_key": chave_site_recaptcha(),
+        "privacy_policy_version": VERSAO_POLITICA,
     }
 
 
@@ -140,19 +165,34 @@ def usuario_atual(request: Request):
     if usuario.get("provider") == "senha":
         linha = contas.buscar_por_email(usuario.get("email", ""))
         conta["created_at"] = linha["criado_em"] if linha else None
+        conta["privacy_accepted_at"] = linha["consentimento_em"] if linha else None
+        conta["privacy_version"] = linha["versao_politica"] if linha else None
+    conta["privacy_current_version"] = VERSAO_POLITICA
     return {"authenticated": True, "user": usuario, "account": conta}
 
 
 class DadosLogin(BaseModel):
-    email: str
-    password: str
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
     remember: bool = False
+    captcha: str | None = Field(None, max_length=4096)
 
 
 class DadosCadastro(BaseModel):
-    name: str
-    email: str
-    password: str
+    name: str = Field(max_length=200)
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
+    accept_privacy: bool = False
+    captcha: str | None = Field(None, max_length=4096)
+
+
+class DadosExclusao(BaseModel):
+    password: str = Field(max_length=256)
+
+
+def _exigir_captcha(request: Request, token: str | None) -> None:
+    if not verificar_recaptcha(token, _ip(request)):
+        raise HTTPException(400, "Confirme que você não é um robô.")
 
 
 class DadosTrocaSenha(BaseModel):
@@ -161,7 +201,8 @@ class DadosTrocaSenha(BaseModel):
 
 
 class DadosRecuperacao(BaseModel):
-    email: str
+    email: str = Field(max_length=254)
+    captcha: str | None = Field(None, max_length=4096)
 
 
 class DadosNovaSenha(BaseModel):
@@ -184,6 +225,7 @@ def login_senha(request: Request, dados: DadosLogin):
     bloqueio = limite_login.segundos_bloqueado(*chaves)
     if bloqueio:
         return JSONResponse({"detail": _mensagem_bloqueio(bloqueio), "retry_after": bloqueio}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    _exigir_captcha(request, dados.captcha)
     usuario = contas.autenticar(dados.email, dados.password)
     if not usuario:
         restantes = limite_login.registrar_falha(*chaves)
@@ -199,12 +241,79 @@ def login_senha(request: Request, dados: DadosLogin):
 
 @app.post("/api/auth/signup", status_code=201)
 def cadastrar(request: Request, dados: DadosCadastro):
+    chave = f"cadastro:{_ip(request)}"
+    bloqueio = limite_cadastro.segundos_bloqueado(chave)
+    if bloqueio:
+        return JSONResponse({"detail": _mensagem_bloqueio(bloqueio)}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    if not dados.accept_privacy:
+        raise HTTPException(400, "Para criar a conta, leia e aceite a Política de Privacidade.")
+    _exigir_captcha(request, dados.captcha)
+    limite_cadastro.registrar_falha(chave)
     try:
-        usuario = contas.criar(dados.name, dados.email, dados.password)
+        usuario = contas.criar(dados.name, dados.email, dados.password, versao_politica=VERSAO_POLITICA)
     except ErroConta as erro:
         raise HTTPException(400, str(erro)) from erro
     iniciar_sessao(request, usuario)
     return {"authenticated": True, "user": usuario}
+
+
+def _usuario_logado(request: Request) -> dict:
+    """Usuário da sessão. Toda operação na conta usa este id, nunca um id enviado pelo navegador."""
+    usuario = usuario_da_sessao(request)
+    if not usuario:
+        raise HTTPException(401, "Faça login para continuar.")
+    return usuario
+
+
+@app.get("/api/conta/dados")
+def exportar_meus_dados(request: Request):
+    """LGPD: o titular baixa todos os dados pessoais que o servidor guarda sobre ele."""
+    usuario = _usuario_logado(request)
+    if usuario.get("provider") != "senha":
+        return {"conta": {k: usuario.get(k) for k in ("provider", "name", "email")}, "observacao": "Conta de provedor externo: o servidor guarda apenas a sessão."}
+    dados = contas.exportar_dados(usuario["id"])
+    if not dados:
+        raise HTTPException(404, "Conta não encontrada.")
+    return {
+        "conta": dados,
+        "observacao": "O histórico de imagens processadas fica somente neste navegador (localStorage e IndexedDB) e não é enviado ao servidor.",
+        "exportado_em": time.time(),
+    }
+
+
+@app.post("/api/conta/excluir")
+def excluir_minha_conta(request: Request, dados: DadosExclusao):
+    """LGPD: exclusão da conta e dos dados ligados a ela, confirmada com a senha."""
+    usuario = _usuario_logado(request)
+    if usuario.get("provider") != "senha":
+        raise HTTPException(400, "Esta conta não tem dados guardados além da sessão; basta sair.")
+    chave = f"excluir:{usuario['id']}"
+    bloqueio = limite_exclusao.segundos_bloqueado(chave)
+    if bloqueio:
+        return JSONResponse({"detail": _mensagem_bloqueio(bloqueio)}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    if not contas.excluir(usuario["id"], dados.password):
+        limite_exclusao.registrar_falha(chave)
+        raise HTTPException(400, "Senha incorreta. A conta não foi excluída.")
+    request.session.clear()
+    return {"detail": "Sua conta e seus dados foram excluídos."}
+
+
+@app.post("/api/conta/consentimento")
+def aceitar_politica(request: Request):
+    """Registra o aceite da política atual por contas criadas antes dela."""
+    usuario = _usuario_logado(request)
+    if usuario.get("provider") == "senha":
+        contas.registrar_consentimento(usuario["id"], VERSAO_POLITICA)
+    return {"detail": "Consentimento registrado.", "version": VERSAO_POLITICA}
+
+
+@app.get("/privacidade", include_in_schema=False)
+def pagina_privacidade():
+    # O contato do controlador vem do .env, para não deixar um e-mail fixo no código.
+    contato = os.getenv("PRIVACIDADE_CONTATO") or os.getenv("SMTP_FROM") or os.getenv("SMTP_USER") or "o responsável pelo projeto"
+    html = (PASTA_FRONTEND / "privacidade.html").read_text(encoding="utf-8")
+    html = html.replace("{{CONTATO}}", escape(contato)).replace("{{VERSAO}}", VERSAO_POLITICA)
+    return HTMLResponse(html)
 
 
 @app.post("/api/auth/password")
@@ -233,12 +342,111 @@ def trocar_senha(request: Request, dados: DadosTrocaSenha):
     return {"detail": "Senha alterada com sucesso."}
 
 
+class AssistenteCompartilhado(BaseModel):
+    livro: str = Field("", max_length=300)
+    autor: str = Field("", max_length=300)
+    resumo_estudo: str = Field("", max_length=4000)
+    exercicios_revisao: list[str] = Field(default_factory=list, max_length=10)
+
+
+class RegistroCompartilhado(BaseModel):
+    nome: str = Field(max_length=300)
+    dimensoes: str = Field("", max_length=60)
+    tempo_ms: float | None = None
+    data: str = Field("", max_length=60)
+    status: str = Field("", max_length=60)
+    assistente: AssistenteCompartilhado = Field(default_factory=AssistenteCompartilhado)
+
+
+class DadosCompartilhamento(BaseModel):
+    destinatario: str = Field(max_length=254)
+    mensagem: str = Field("", max_length=1000)
+    registro: RegistroCompartilhado
+    imagem: str | None = Field(None, description="Miniatura do histórico como data URL JPEG")
+
+
+def _relatorio_historico(registro: RegistroCompartilhado) -> str:
+    assistente = registro.assistente
+    tempo = f"{registro.tempo_ms / 1000:.2f} s" if registro.tempo_ms is not None else "não informado"
+    linhas = [
+        f"Imagem: {registro.nome}",
+        f"Dimensões: {registro.dimensoes or 'não informadas'}",
+        f"Tempo de processamento: {tempo}",
+        f"Processado em: {registro.data or 'não informado'}",
+        f"Status: {registro.status or 'não informado'}",
+        f"Livro sugerido: {assistente.livro or 'não identificado'}",
+        f"Autor: {assistente.autor or 'não identificado'}",
+        f"Resumo: {assistente.resumo_estudo or 'não disponível'}",
+    ]
+    if assistente.exercicios_revisao:
+        linhas += ["", "Exercícios de revisão:"]
+        linhas += [f"{n}. {exercicio[:500]}" for n, exercicio in enumerate(assistente.exercicios_revisao, 1)]
+    return "\n".join(linhas)
+
+
+def _decodificar_miniatura(data_url: str | None) -> bytes | None:
+    if not data_url:
+        return None
+    prefixo = "data:image/jpeg;base64,"
+    if not data_url.startswith(prefixo):
+        raise HTTPException(400, "A imagem do histórico está em um formato inesperado.")
+    try:
+        conteudo = base64.b64decode(data_url[len(prefixo):], validate=True)
+    except (binascii.Error, ValueError) as erro:
+        raise HTTPException(400, "Não foi possível ler a imagem do histórico.") from erro
+    if len(conteudo) > TAMANHO_MAXIMO_IMAGEM_EMAIL:
+        raise HTTPException(413, "A imagem do histórico é grande demais para enviar por e-mail.")
+    return conteudo
+
+
+@app.post("/api/historico/enviar")
+def compartilhar_historico(request: Request, dados: DadosCompartilhamento):
+    usuario = usuario_da_sessao(request)
+    if not usuario:
+        raise HTTPException(401, "Faça login para continuar.")
+    destinatario = normalizar_email(dados.destinatario)
+    if not email_valido(destinatario):
+        raise HTTPException(400, "Informe um e-mail de destino válido.")
+    if not smtp_configurado():
+        raise HTTPException(503, "O envio de e-mails não está configurado neste servidor.")
+    chave = f"compartilhar:{usuario.get('email') or usuario.get('id')}"
+    bloqueio = limite_compartilhamento.segundos_bloqueado(chave)
+    if bloqueio:
+        return JSONResponse({"detail": f"Limite de envios atingido. {_mensagem_bloqueio(bloqueio)}"}, status_code=429, headers={"Retry-After": str(bloqueio)})
+
+    miniatura = _decodificar_miniatura(dados.imagem)
+    remetente = usuario.get("name") or usuario.get("email") or "Um usuário"
+    relatorio = _relatorio_historico(dados.registro)
+    corpo = [f"{remetente} compartilhou com você um resultado do NeXo Estudos.", ""]
+    if dados.mensagem.strip():
+        corpo += ["Mensagem:", dados.mensagem.strip(), ""]
+    corpo += ["---", relatorio, "---", "", "Para responder, basta responder a este e-mail."]
+    nome_base = "".join(c if c.isalnum() or c in "-_" else "-" for c in dados.registro.nome.rsplit(".", 1)[0])[:60] or "imagem"
+    anexos = [(f"{nome_base}-relatorio.txt", relatorio.encode("utf-8"), "text/plain")]
+    if miniatura:
+        anexos.append((f"{nome_base}.jpg", miniatura, "image/jpeg"))
+    try:
+        enviar_email(
+            destinatario,
+            f"{remetente} compartilhou um resultado do NeXo Estudos: {dados.registro.nome[:80]}",
+            "\n".join(corpo),
+            anexos,
+            responder_para=usuario.get("email"),
+        )
+    except OSError:
+        logger.exception("Falha ao enviar o histórico por e-mail")
+        raise HTTPException(502, "Não foi possível enviar o e-mail agora. Tente novamente mais tarde.")
+    limite_compartilhamento.registrar_falha(chave)
+    return {"detail": f"Enviado para {destinatario}."}
+
+
 @app.post("/api/auth/forgot")
 def esqueci_senha(request: Request, dados: DadosRecuperacao):
     chave = f"ip:{_ip(request)}"
     bloqueio = limite_recuperacao.segundos_bloqueado(chave)
     if bloqueio:
         return JSONResponse({"detail": _mensagem_bloqueio(bloqueio)}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    _exigir_captcha(request, dados.captcha)
     limite_recuperacao.registrar_falha(chave)
     token = contas.criar_token_recuperacao(dados.email)
     if token:
@@ -355,7 +563,14 @@ def _decodificar_pdf(conteudo: bytes) -> list[np.ndarray]:
 
 
 @app.post("/api/processar")
-async def processar_arquivo(arquivos: list[UploadFile] = File(...)):
+async def processar_arquivo(request: Request, arquivos: list[UploadFile] = File(...)):
+    # O OCR é pesado: limitar por usuário evita que uma conta derrube o servidor com envios em massa.
+    usuario = usuario_da_sessao(request) or {}
+    chave = f"processar:{usuario.get('id') or _ip(request)}"
+    bloqueio = limite_processamento.segundos_bloqueado(chave)
+    if bloqueio:
+        return JSONResponse({"detail": f"Você atingiu o limite de processamentos. {_mensagem_bloqueio(bloqueio)}"}, status_code=429, headers={"Retry-After": str(bloqueio)})
+    limite_processamento.registrar_falha(chave)
     if not arquivos:
         raise HTTPException(400, "Nenhuma imagem foi enviada.")
     if len(arquivos) > 2:

@@ -1,3 +1,4 @@
+import os
 import tempfile
 import time
 import unittest
@@ -15,6 +16,10 @@ SENHA = "senha-segura-123"
 
 class TestAutenticacao(unittest.TestCase):
     def setUp(self):
+        # O .env pode ter chaves reais do reCAPTCHA; os testes rodam com ele desligado.
+        sem_captcha = mock.patch.dict(os.environ, {"RECAPTCHA_SITE_KEY": "", "RECAPTCHA_SECRET_KEY": ""})
+        sem_captcha.start()
+        self.addCleanup(sem_captcha.stop)
         self.pasta = tempfile.TemporaryDirectory()
         self.addCleanup(self.pasta.cleanup)
         repositorio = RepositorioContas(Path(self.pasta.name) / "contas.db")
@@ -23,6 +28,7 @@ class TestAutenticacao(unittest.TestCase):
             "contas": repositorio,
             "limite_login": LimiteTentativas(maximo=5, bloqueio_segundos=900),
             "limite_recuperacao": LimiteTentativas(maximo=5, bloqueio_segundos=900),
+            "limite_cadastro": LimiteTentativas(maximo=5, bloqueio_segundos=3600),
         }.items():
             patcher = mock.patch.object(main, nome, valor)
             patcher.start()
@@ -73,13 +79,13 @@ class TestAutenticacao(unittest.TestCase):
         self.assertEqual(self.entrar(senha="errada").json()["remaining"], 4)
 
     def test_criar_conta(self):
-        dados = {"name": "Ana", "email": "ana@exemplo.com", "password": "12345678"}
+        dados = {"name": "Ana", "email": "ana@exemplo.com", "password": "girassol-azul-7", "accept_privacy": True}
         resposta = self.cliente.post("/api/auth/signup", json=dados)
         self.assertEqual(resposta.status_code, 201)
         self.assertEqual(resposta.json()["user"]["role"], "usuario")
         self.assertEqual(self.cliente.get("/", follow_redirects=False).status_code, 200)
         self.assertEqual(self.cliente.post("/api/auth/signup", json=dados).status_code, 400)
-        curta = {"name": "Bia", "email": "bia@exemplo.com", "password": "123"}
+        curta = {"name": "Bia", "email": "bia@exemplo.com", "password": "123", "accept_privacy": True}
         self.assertEqual(self.cliente.post("/api/auth/signup", json=curta).status_code, 400)
 
     def test_recuperar_senha(self):

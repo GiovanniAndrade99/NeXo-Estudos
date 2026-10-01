@@ -172,31 +172,77 @@
           <h2>Histórico de processamentos</h2>
         </div>
         <div class="info-card large">
-          <p class="history-helper">Exporte o resumo de qualquer processamento para continuar seus estudos.</p>
+          <p class="history-helper">Exporte o resumo de qualquer processamento ou envie por e-mail para quem quiser.</p>
           <div id="history-menu-list" class="history-list"></div>
         </div>
+
+        <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-title">
+          <form id="share-form" class="settings-form" novalidate>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+              <div><span class="step-tag">COMPARTILHAR</span><h3 id="share-title">Enviar por e-mail</h3></div>
+            </div>
+            <p class="share-item">Registro: <strong id="share-item-name">—</strong></p>
+            <label for="share-to">E-mail de destino</label>
+            <input id="share-to" name="to" type="email" placeholder="colega@exemplo.com" autocomplete="email" required>
+            <label for="share-message">Mensagem (opcional)</label>
+            <textarea id="share-message" name="message" rows="3" maxlength="1000" placeholder="Escreva um recado para quem vai receber"></textarea>
+            <label class="share-attach"><input id="share-attach" name="attach" type="checkbox" checked> Anexar a imagem processada</label>
+            <p class="share-note">Vão junto o resumo do processamento e as sugestões de estudo. Quem receber pode responder direto para o seu e-mail.</p>
+            <p class="settings-message" role="status" hidden></p>
+            <div class="share-actions">
+              <button class="ghost-button" type="button" data-share-cancel>Cancelar</button>
+              <button class="primary-button" type="submit">Enviar <span aria-hidden="true">→</span></button>
+            </div>
+          </form>
+        </dialog>
       </section>
 
       <section class="screen" data-screen-content="comparar">
         <div class="screen-header">
-          <span class="step-tag">HISTORICO DO LABORATORIO</span>
-          <h2>Historico e comparacao</h2>
-          <p>Consulte o tempo de cada processamento e compare quaisquer duas imagens salvas neste navegador.</p>
+          <span class="step-tag">HISTÓRICO DO LABORATÓRIO</span>
+          <h2>Comparar imagens</h2>
+          <p>Escolha duas imagens do seu histórico para ver lado a lado.</p>
         </div>
-        <div class="info-card large">
-          <h3>Imagens processadas</h3>
-          <div id="comparison-history-list" class="history-list"></div>
-        </div>
-        <div class="info-card large margin-top history-compare-section">
-          <h3>Comparar imagens do historico</h3>
-          <p class="history-helper">Escolha duas imagens processadas anteriormente para ver lado a lado.</p>
-          <div class="comparison-selectors">
-            <label>Imagem A<select id="compare-left" disabled></select></label>
-            <label>Imagem B<select id="compare-right" disabled></select></label>
+        <div class="info-card large history-compare-section">
+          <div class="compare-pickers">
+            <div class="compare-picker slot-a" data-picker="A">
+              <span class="picker-label" id="picker-a-label">Imagem A</span>
+              <button type="button" class="picker-button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="picker-a-label picker-a-value" disabled>
+                <span class="slot-badge">A</span>
+                <span class="picker-thumb"><img alt=""></span>
+                <span class="picker-text" id="picker-a-value"><strong>Nenhuma selecionada</strong><small></small></span>
+                <svg class="picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <ul class="picker-list" role="listbox" aria-labelledby="picker-a-label" tabindex="-1" hidden></ul>
+            </div>
+            <div class="compare-picker slot-b" data-picker="B">
+              <span class="picker-label" id="picker-b-label">Imagem B</span>
+              <button type="button" class="picker-button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="picker-b-label picker-b-value" disabled>
+                <span class="slot-badge">B</span>
+                <span class="picker-thumb"><img alt=""></span>
+                <span class="picker-text" id="picker-b-value"><strong>Nenhuma selecionada</strong><small></small></span>
+                <svg class="picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <ul class="picker-list" role="listbox" aria-labelledby="picker-b-label" tabindex="-1" hidden></ul>
+            </div>
           </div>
           <div class="image-comparison user-comparison" hidden>
             <figure><div class="image-frame"><img id="compare-left-image" alt="Imagem A salva no historico"></div><figcaption id="compare-left-caption">Imagem A</figcaption></figure>
             <figure><div class="image-frame"><img id="compare-right-image" alt="Imagem B salva no historico"></div><figcaption id="compare-right-caption">Imagem B</figcaption></figure>
+          </div>
+          <div id="compare-summary" class="compare-summary" hidden>
+            <h3>Resumo do processamento</h3>
+            <div class="summary-table-wrap">
+              <table class="summary-table">
+                <thead><tr><th scope="col">Item</th><th scope="col" class="slot-a"><span class="slot-badge mini">A</span> <span data-summary-name="A"></span></th><th scope="col" class="slot-b"><span class="slot-badge mini">B</span> <span data-summary-name="B"></span></th></tr></thead>
+                <tbody id="compare-summary-rows"></tbody>
+              </table>
+            </div>
+            <div class="summary-details">
+              <article class="summary-detail slot-a"><h4><span class="slot-badge mini">A</span> Resumo de estudo</h4><p data-summary-study="A"></p><h4>Trecho reconhecido</h4><blockquote data-summary-text="A"></blockquote></article>
+              <article class="summary-detail slot-b"><h4><span class="slot-badge mini">B</span> Resumo de estudo</h4><p data-summary-study="B"></p><h4>Trecho reconhecido</h4><blockquote data-summary-text="B"></blockquote></article>
+            </div>
           </div>
           <p id="comparison-empty" class="comparison-help">Processe imagens para adiciona-las ao historico e compara-las.</p>
           <p id="history-comparison-status" class="comparison-help" role="status"></p>
@@ -441,6 +487,31 @@
             <div class="setting-row"><span>Qualidade</span><strong>Auto</strong></div>
             <div class="setting-row"><span>Correção</span><strong>Inclinação automática</strong></div>
             <div class="setting-row"><span>Resultado</span><strong>Texto em tela e cópia</strong></div>
+          </article>
+
+          <article class="settings-card settings-wide privacy-card" data-reveal>
+            <div class="settings-card-head">
+              <span class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+              <div><span class="step-tag">LGPD</span><h3>Privacidade e seus dados</h3></div>
+            </div>
+            <div class="setting-row"><span>Política de Privacidade</span><strong id="privacy-status">—</strong></div>
+            <p class="privacy-consent" id="privacy-consent" hidden>Você ainda não aceitou a versão atual da política. <button class="text-link" type="button" id="privacy-accept">Ler e aceitar</button></p>
+            <div class="privacy-actions">
+              <a class="ghost-button" href="/privacidade" target="_blank" rel="noopener">Ler a política</a>
+              <button class="ghost-button" type="button" id="privacy-export">Baixar meus dados</button>
+              <button class="ghost-button" type="button" id="privacy-clear-history">Apagar histórico deste navegador</button>
+              <button class="ghost-button danger" type="button" id="privacy-delete-open">Excluir minha conta</button>
+            </div>
+            <form id="delete-account-form" class="settings-form delete-account" hidden novalidate>
+              <p class="delete-warning"><strong>Isto não pode ser desfeito.</strong> Sua conta, seus dados no servidor e o histórico deste navegador serão apagados.</p>
+              <label for="delete-password">Confirme com sua senha</label>
+              <input id="delete-password" name="password" type="password" autocomplete="current-password" required>
+              <div class="share-actions">
+                <button class="ghost-button" type="button" id="privacy-delete-cancel">Cancelar</button>
+                <button class="primary-button danger-button" type="submit">Excluir definitivamente</button>
+              </div>
+            </form>
+            <p class="settings-message" id="privacy-message" role="status" hidden></p>
           </article>
 
           <article class="settings-card settings-wide" data-reveal>

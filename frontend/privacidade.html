@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Política de Privacidade | Nexo Estudos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/privacidade.css">
+</head>
+<body>
+  <main class="policy">
+    <a class="policy-back" href="/login">&#8592; Voltar</a>
+    <p class="policy-tag">LGPD · LEI Nº 13.709/2018</p>
+    <h1>Política de Privacidade</h1>
+    <p class="policy-meta">Versão {{VERSAO}} · NeXo Estudos (projeto acadêmico)</p>
+
+    <p>Esta política explica quais dados pessoais o NeXo Estudos trata, para quê, por quanto tempo e como você exerce seus direitos como titular, conforme a Lei Geral de Proteção de Dados (LGPD).</p>
+
+    <h2>1. Quem é o responsável</h2>
+    <p>O NeXo Estudos é um projeto acadêmico de processamento de imagens. O controlador dos dados é o responsável pelo projeto, que pode ser contatado pelo e-mail <strong>{{CONTATO}}</strong> para qualquer assunto sobre privacidade.</p>
+
+    <h2>2. Quais dados tratamos</h2>
+    <table>
+      <thead><tr><th>Dado</th><th>Onde fica</th><th>Para quê</th></tr></thead>
+      <tbody>
+        <tr><td>Nome e e-mail</td><td>Servidor (banco de contas)</td><td>Identificar sua conta e enviar o link de recuperação de senha</td></tr>
+        <tr><td>Senha</td><td>Servidor, apenas como <em>hash</em> scrypt</td><td>Autenticação. A senha em si nunca é guardada</td></tr>
+        <tr><td>Data de criação da conta e do aceite desta política</td><td>Servidor</td><td>Comprovar o consentimento</td></tr>
+        <tr><td>Cookie de sessão</td><td>Seu navegador (assinado digitalmente)</td><td>Manter você conectado: 8 horas, ou 30 dias se escolher "manter conectado"</td></tr>
+        <tr><td>Endereço IP</td><td>Memória do servidor, temporariamente</td><td>Limitar tentativas de login, cadastro e processamento (segurança). É descartado quando o bloqueio expira</td></tr>
+        <tr><td>Imagens e PDFs enviados</td><td>Processados em memória e <strong>não armazenados</strong> no servidor</td><td>Gerar o texto reconhecido e as sugestões de estudo</td></tr>
+        <tr><td>Histórico de processamentos</td><td><strong>Somente no seu navegador</strong> (localStorage e IndexedDB)</td><td>Consultar e comparar resultados anteriores. Não é enviado ao servidor</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Bases legais</h2>
+    <ul>
+      <li><strong>Consentimento</strong> (art. 7º, I): dado ao criar a conta, aceitando esta política.</li>
+      <li><strong>Execução do serviço solicitado</strong> (art. 7º, V): processar as imagens que você envia e manter sua conta.</li>
+      <li><strong>Legítimo interesse</strong> (art. 7º, IX): segurança do sistema, como o limite de tentativas e a verificação contra robôs.</li>
+    </ul>
+
+    <h2>4. Com quem os dados são compartilhados</h2>
+    <p>Não vendemos nem cedemos dados pessoais. Alguns serviços do Google são usados pelo funcionamento do site:</p>
+    <ul>
+      <li><strong>Gmail (envio de e-mails):</strong> quando você pede recuperação de senha ou envia um resultado do histórico por e-mail, o conteúdo da mensagem e o e-mail de destino passam pelo servidor de e-mail do Google.</li>
+      <li><strong>Google reCAPTCHA:</strong> quando ativado, verifica se quem usa o formulário é uma pessoa, e o Google recebe dados técnicos do navegador conforme a <a href="https://policies.google.com/privacy" rel="noopener">Política de Privacidade do Google</a>.</li>
+      <li><strong>Google Fonts:</strong> as fontes do site são carregadas dos servidores do Google, que recebem o endereço IP do seu navegador.</li>
+    </ul>
+    <p>Ao enviar um resultado por e-mail, você é responsável por compartilhá-lo apenas com quem deseja.</p>
+
+    <h2>5. Por quanto tempo guardamos</h2>
+    <ul>
+      <li>Dados da conta: até você excluir a conta.</li>
+      <li>Links de recuperação de senha: 30 minutos, e são invalidados após o uso ou a troca de senha.</li>
+      <li>Endereços IP para limite de tentativas: no máximo 1 hora, apenas em memória.</li>
+      <li>Imagens enviadas: não são guardadas após o processamento.</li>
+      <li>Histórico no navegador: até 8 registros, enquanto você não limpar os dados do site no navegador.</li>
+    </ul>
+
+    <h2>6. Seus direitos (art. 18 da LGPD)</h2>
+    <p>Na aba <strong>Configurações</strong>, depois de entrar no sistema, você pode:</p>
+    <ul>
+      <li><strong>Acessar e levar seus dados:</strong> o botão "Baixar meus dados" entrega tudo o que o servidor guarda sobre você, em formato JSON.</li>
+      <li><strong>Excluir seus dados:</strong> o botão "Excluir minha conta" apaga a conta definitivamente. Isso também revoga o consentimento.</li>
+      <li><strong>Apagar o histórico:</strong> o botão "Apagar histórico deste navegador" remove os resultados guardados localmente.</li>
+    </ul>
+    <p>Para corrigir dados, pedir informações sobre o tratamento ou apresentar qualquer outra solicitação, escreva para <strong>{{CONTATO}}</strong>. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>
+
+    <h2>7. Como protegemos os dados</h2>
+    <ul>
+      <li>Senhas guardadas apenas como <em>hash</em> scrypt com sal aleatório.</li>
+      <li>Limite de tentativas no login, no cadastro, na recuperação de senha e no processamento.</li>
+      <li>Consultas ao banco parametrizadas, contra SQL injection.</li>
+      <li>Cada conta só acessa os próprios dados; a identificação vem sempre da sessão.</li>
+      <li>Proteções do navegador: política de segurança de conteúdo (CSP), bloqueio de pedidos vindos de outros sites e cookie de sessão protegido.</li>
+    </ul>
+
+    <h2>8. Alterações nesta política</h2>
+    <p>Se esta política mudar, a versão no topo da página é atualizada. Mudanças relevantes serão informadas no próprio sistema.</p>
+  </main>
+</body>
+</html>
