@@ -352,7 +352,13 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv(RAIZ / ".env")
-    repositorio = RepositorioContas(os.getenv("CONTAS_DB") or RAIZ / "contas.db")
+    if os.getenv("SUPABASE_DB_URL"):
+        # Com o Supabase configurado, o admin é gravado lá; definir_admin usa só a conexão de administrador.
+        from backend.banco_postgres import RepositorioContasPostgres
+        repositorio = RepositorioContasPostgres(None, os.getenv("SUPABASE_DB_URL"))
+        print("Gravando o administrador no Supabase.")
+    else:
+        repositorio = RepositorioContas(os.getenv("CONTAS_DB") or RAIZ / "contas.db")
     email = input("E-mail do administrador: ").strip()
     senha = getpass(f"Nova senha (mínimo {TAMANHO_MINIMO_SENHA} caracteres): ")
     if senha != getpass("Repita a senha: "):

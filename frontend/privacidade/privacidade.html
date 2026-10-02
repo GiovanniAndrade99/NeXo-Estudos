@@ -26,13 +26,14 @@
     <table>
       <thead><tr><th>Dado</th><th>Onde fica</th><th>Para quê</th></tr></thead>
       <tbody>
-        <tr><td>Nome e e-mail</td><td>Servidor (banco de contas)</td><td>Identificar sua conta e enviar o link de recuperação de senha</td></tr>
-        <tr><td>Senha</td><td>Servidor, apenas como <em>hash</em> scrypt</td><td>Autenticação. A senha em si nunca é guardada</td></tr>
-        <tr><td>Data de criação da conta e do aceite desta política</td><td>Servidor</td><td>Comprovar o consentimento</td></tr>
+        <tr><td>Nome e e-mail</td><td>Banco de dados do Supabase</td><td>Identificar sua conta e enviar o link de recuperação de senha</td></tr>
+        <tr><td>Senha</td><td>Banco de dados do Supabase, apenas como <em>hash</em> scrypt</td><td>Autenticação. A senha em si nunca é guardada</td></tr>
+        <tr><td>Data de criação da conta e do aceite desta política</td><td>Banco de dados do Supabase</td><td>Comprovar o consentimento</td></tr>
         <tr><td>Cookie de sessão</td><td>Seu navegador (assinado digitalmente)</td><td>Manter você conectado: 8 horas, ou 30 dias se escolher "manter conectado"</td></tr>
         <tr><td>Endereço IP</td><td>Memória do servidor, temporariamente</td><td>Limitar tentativas de login, cadastro e processamento (segurança). É descartado quando o bloqueio expira</td></tr>
-        <tr><td>Imagens e PDFs enviados</td><td>Processados em memória e <strong>não armazenados</strong> no servidor</td><td>Gerar o texto reconhecido e as sugestões de estudo</td></tr>
-        <tr><td>Histórico de processamentos</td><td><strong>Somente no seu navegador</strong> (localStorage e IndexedDB)</td><td>Consultar e comparar resultados anteriores. Não é enviado ao servidor</td></tr>
+        <tr><td>Imagens e PDFs enviados</td><td>Processados em memória; o arquivo original <strong>não é guardado</strong></td><td>Gerar o texto reconhecido e as sugestões de estudo</td></tr>
+        <tr><td>Histórico de processamentos (nome do arquivo, dimensões, tempo, trecho de até 400 caracteres do texto reconhecido e sugestões de estudo)</td><td>Banco de dados do Supabase, ligado à sua conta</td><td>Consultar, comparar e compartilhar resultados anteriores em qualquer dispositivo</td></tr>
+        <tr><td>Miniatura de cada imagem processada (reduzida, em JPEG)</td><td>Armazenamento privado do Supabase (Storage)</td><td>Mostrar a imagem no histórico, na comparação e no envio por e-mail</td></tr>
       </tbody>
     </table>
 
@@ -44,8 +45,9 @@
     </ul>
 
     <h2>4. Com quem os dados são compartilhados</h2>
-    <p>Não vendemos nem cedemos dados pessoais. Alguns serviços do Google são usados pelo funcionamento do site:</p>
+    <p>Não vendemos nem cedemos dados pessoais. Os serviços abaixo são usados pelo funcionamento do site:</p>
     <ul>
+      <li><strong>Supabase (banco de dados e armazenamento):</strong> guarda as contas, o histórico e as miniaturas, atuando como operador dos dados. Os servidores ficam nos <strong>Estados Unidos</strong> (região us-east-1); essa transferência internacional ocorre para viabilizar o serviço que você solicita (art. 33, IX, da LGPD) e é protegida por criptografia na transmissão e controle de acesso por conta. O acesso aos dados é feito apenas pelo servidor do NeXo Estudos.</li>
       <li><strong>Gmail (envio de e-mails):</strong> quando você pede recuperação de senha ou envia um resultado do histórico por e-mail, o conteúdo da mensagem e o e-mail de destino passam pelo servidor de e-mail do Google.</li>
       <li><strong>Google reCAPTCHA:</strong> quando ativado, verifica se quem usa o formulário é uma pessoa, e o Google recebe dados técnicos do navegador conforme a <a href="https://policies.google.com/privacy" rel="noopener">Política de Privacidade do Google</a>.</li>
       <li><strong>Google Fonts:</strong> as fontes do site são carregadas dos servidores do Google, que recebem o endereço IP do seu navegador.</li>
@@ -57,16 +59,16 @@
       <li>Dados da conta: até você excluir a conta.</li>
       <li>Links de recuperação de senha: 30 minutos, e são invalidados após o uso ou a troca de senha.</li>
       <li>Endereços IP para limite de tentativas: no máximo 1 hora, apenas em memória.</li>
-      <li>Imagens enviadas: não são guardadas após o processamento.</li>
-      <li>Histórico no navegador: até 8 registros, enquanto você não limpar os dados do site no navegador.</li>
+      <li>Imagens enviadas: o arquivo original não é guardado após o processamento.</li>
+      <li>Histórico e miniaturas: os 50 processamentos mais recentes de cada conta; os mais antigos são apagados automaticamente. Tudo é apagado ao excluir a conta ou ao usar "Apagar meu histórico".</li>
     </ul>
 
     <h2>6. Seus direitos (art. 18 da LGPD)</h2>
     <p>Na aba <strong>Configurações</strong>, depois de entrar no sistema, você pode:</p>
     <ul>
-      <li><strong>Acessar e levar seus dados:</strong> o botão "Baixar meus dados" entrega tudo o que o servidor guarda sobre você, em formato JSON.</li>
-      <li><strong>Excluir seus dados:</strong> o botão "Excluir minha conta" apaga a conta definitivamente. Isso também revoga o consentimento.</li>
-      <li><strong>Apagar o histórico:</strong> o botão "Apagar histórico deste navegador" remove os resultados guardados localmente.</li>
+      <li><strong>Acessar e levar seus dados:</strong> o botão "Baixar meus dados" entrega, em formato JSON, a sua conta e todo o seu histórico.</li>
+      <li><strong>Excluir seus dados:</strong> o botão "Excluir minha conta" apaga a conta, o histórico e as miniaturas definitivamente. Isso também revoga o consentimento.</li>
+      <li><strong>Apagar o histórico:</strong> o botão "Apagar meu histórico" remove todos os seus processamentos e miniaturas, mantendo a conta.</li>
     </ul>
     <p>Para corrigir dados, pedir informações sobre o tratamento ou apresentar qualquer outra solicitação, escreva para <strong>{{CONTATO}}</strong>. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>
 
@@ -75,7 +77,8 @@
       <li>Senhas guardadas apenas como <em>hash</em> scrypt com sal aleatório.</li>
       <li>Limite de tentativas no login, no cadastro, na recuperação de senha e no processamento.</li>
       <li>Consultas ao banco parametrizadas, contra SQL injection.</li>
-      <li>Cada conta só acessa os próprios dados; a identificação vem sempre da sessão.</li>
+      <li>Cada conta só acessa os próprios dados: a identificação vem sempre da sessão, e o próprio banco de dados aplica regras de acesso por linha (Row Level Security) que recusam dados de outra conta.</li>
+      <li>Miniaturas em armazenamento privado, sem endereço público.</li>
       <li>Proteções do navegador: política de segurança de conteúdo (CSP), bloqueio de pedidos vindos de outros sites e cookie de sessão protegido.</li>
     </ul>
 

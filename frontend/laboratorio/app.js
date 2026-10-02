@@ -99,7 +99,6 @@ document.querySelector("#privacy-export")?.addEventListener("click", async () =>
     const response = await fetch("/api/conta/dados");
     if (!response.ok) throw new Error();
     const dados = await response.json();
-    dados.historico_neste_navegador = getHistoryRecords();
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" }));
     link.download = "meus-dados-nexo-estudos.json";
@@ -112,12 +111,13 @@ document.querySelector("#privacy-export")?.addEventListener("click", async () =>
 });
 
 document.querySelector("#privacy-clear-history")?.addEventListener("click", async () => {
-  if (!window.confirm("Apagar todo o histórico de imagens guardado neste navegador?")) return;
+  if (!window.confirm("Apagar todo o seu histórico de imagens processadas?")) return;
+  const response = await fetch("/api/historico", { method: "DELETE" }).catch(() => null);
+  if (!response?.ok) return showPrivacyMessage("Não foi possível apagar o histórico agora.");
   await clearLocalHistory();
-  renderHistory([]);
-  renderHistoricMenu();
-  await refreshHistoryComparison();
-  showPrivacyMessage("Histórico deste navegador apagado.", "success");
+  historyImageCache.clear();
+  await carregarHistorico();
+  showPrivacyMessage("Seu histórico foi apagado.", "success");
 });
 
 document.querySelector("#privacy-accept")?.addEventListener("click", async () => {
@@ -438,7 +438,7 @@ function saveHistoryItem(item, format) {
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-history-save]");
   if (!button) return;
-  const records = JSON.parse(localStorage.getItem("process-history") || "[]");
+  const records = getHistoryRecords();
   const item = records[Number(button.dataset.historySave)];
   const format = button.parentElement.querySelector(`[data-history-format="${button.dataset.historySave}"]`)?.value || "txt";
   if (item) saveHistoryItem(item, format);
@@ -482,32 +482,14 @@ shareForm?.addEventListener("submit", async (event) => {
   button.disabled = true;
   showShareMessage("Enviando…", "info");
   try {
-    const assistant = shareRecord.assistente || {};
-    const texto = (valor, limite) => (typeof valor === "string" ? valor : "").slice(0, limite);
-    let imagem = null;
-    if (shareForm.elements.attach.checked && shareRecord.imageId) {
-      imagem = await loadHistoryImage(shareRecord.imageId).catch(() => null);
-    }
     const response = await fetch("/api/historico/enviar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         destinatario: to,
         mensagem: shareForm.elements.message.value.slice(0, 1000),
-        imagem,
-        registro: {
-          nome: texto(shareRecord.name, 300),
-          dimensoes: texto(shareRecord.dimensions, 60),
-          tempo_ms: Number.isFinite(shareRecord.time) ? shareRecord.time : null,
-          data: texto(shareRecord.date, 60),
-          status: texto(shareRecord.status, 60),
-          assistente: {
-            livro: texto(assistant.livro, 300),
-            autor: texto(assistant.autor, 300),
-            resumo_estudo: texto(assistant.resumo_estudo, 4000),
-            exercicios_revisao: (assistant.exercicios_revisao || []).filter((e) => typeof e === "string").slice(0, 10)
-          }
-        }
+        historico_id: shareRecord.id,
+        anexar_imagem: shareForm.elements.attach.checked && Boolean(shareRecord.imageId)
       })
     });
     const data = await response.json().catch(() => ({}));
@@ -570,7 +552,7 @@ function renderAssistenteEstudos(assistente) {
 }
 
 function getHistoryRecords() {
-  return JSON.parse(localStorage.getItem("process-history") || "[]");
+  return historyCache;
 }
 
 function renderHistoricMenu() {
@@ -589,101 +571,49 @@ function renderHistoricMenu() {
   });
 }
 
-function openHistoryImageStore() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("nexo-estudos-history", 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains("images")) {
-        request.result.createObjectStore("images", { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Nao foi possivel abrir o armazenamento local."));
-  });
+// Histórico guardado no servidor (Supabase): o navegador só mantém uma cópia em memória.
+let historyCache = [];
+const historyImageCache = new Map();
+
+function adaptarRegistro(registro) {
+  return {
+    id: registro.id,
+    imageId: registro.tem_miniatura ? registro.id : null,
+    name: registro.nome_arquivo + (registro.pagina ? ` | pagina ${registro.pagina}` : ""),
+    dimensions: `${registro.largura} x ${registro.altura}`,
+    time: registro.tempo_ms,
+    status: registro.ocr_disponivel ? "OCR OK" : "PROCESSADO",
+    date: new Date(registro.criado_em * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+    assistente: registro.assistente || {},
+    inclinacao: registro.inclinacao_graus,
+    palavras: registro.palavras,
+    trecho: registro.trecho
+  };
 }
 
-function storeHistoryImage(id, dataUrl) {
-  return openHistoryImageStore().then((database) => new Promise((resolve, reject) => {
-    const transaction = database.transaction("images", "readwrite");
-    transaction.objectStore("images").put({ id, dataUrl });
-    transaction.oncomplete = () => { database.close(); resolve(); };
-    transaction.onerror = () => { database.close(); reject(transaction.error); };
-  }));
+async function carregarHistorico() {
+  try {
+    const response = await fetch("/api/historico");
+    if (!response.ok) throw new Error();
+    historyCache = (await response.json()).registros.map(adaptarRegistro);
+  } catch {
+    historyCache = [];
+  }
+  renderHistory(historyCache);
+  renderHistoricMenu();
+  await refreshHistoryComparison();
 }
 
 function loadHistoryImage(id) {
-  return openHistoryImageStore().then((database) => new Promise((resolve, reject) => {
-    const request = database.transaction("images", "readonly").objectStore("images").get(id);
-    request.onsuccess = () => { database.close(); resolve(request.result?.dataUrl || null); };
-    request.onerror = () => { database.close(); reject(request.error); };
-  }));
-}
-
-function removeHistoryImages(ids) {
-  if (!ids.length) return Promise.resolve();
-  return openHistoryImageStore().then((database) => new Promise((resolve, reject) => {
-    const transaction = database.transaction("images", "readwrite");
-    ids.forEach((id) => transaction.objectStore("images").delete(id));
-    transaction.oncomplete = () => { database.close(); resolve(); };
-    transaction.onerror = () => { database.close(); reject(transaction.error); };
-  }));
-}
-
-function makeHistoryThumbnail(base64) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return reject(new Error("Canvas indisponivel para salvar a imagem."));
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.78));
-    };
-    image.onerror = () => reject(new Error("Nao foi possivel preparar a imagem para o historico."));
-    image.src = imageUrl(base64);
-  });
-}
-
-async function saveProcessedImagesToHistory(assets, existingRecords) {
-  const newRecords = assets.map((asset) => ({
-    id: `history-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    name: asset.nome_arquivo + (asset.pagina ? ` | pagina ${asset.pagina}` : ""),
-    dimensions: `${asset.dimensoes.largura} x ${asset.dimensoes.altura}`,
-    time: asset.tempo_processamento_ms,
-    status: asset.ocr_disponivel ? "OCR OK" : "PROCESSADO",
-    date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-    assistente: asset.assistente_estudos || {},
-    // Dados usados no resumo da aba Comparar.
-    inclinacao: asset.inclinacao_corrigida_graus ?? null,
-    palavras: (asset.texto || "").split(/\s+/).filter(Boolean).length,
-    trecho: (asset.texto || "").trim().slice(0, 400),
-    sourceImage: asset.imagens.original
-  }));
-  const retainedNewRecords = newRecords.slice(0, 8);
-  let storageFailed = false;
-
-  for (const record of retainedNewRecords) {
-    try {
-      await storeHistoryImage(record.id, await makeHistoryThumbnail(record.sourceImage));
-      record.imageId = record.id;
-    } catch {
-      storageFailed = true;
-      record.imageId = null;
-    }
-    delete record.sourceImage;
-  }
-
-  const nextRecords = [...retainedNewRecords, ...existingRecords].slice(0, 8);
-  const retainedImageIds = new Set(nextRecords.map((record) => record.imageId).filter(Boolean));
-  const expiredImageIds = existingRecords
-    .map((record) => record.imageId)
-    .filter((id) => id && !retainedImageIds.has(id));
-  await removeHistoryImages(expiredImageIds).catch(() => {});
-  localStorage.setItem("process-history", JSON.stringify(nextRecords));
-  return storageFailed;
+  if (historyImageCache.has(id)) return Promise.resolve(historyImageCache.get(id));
+  return fetch(`/api/historico/${encodeURIComponent(id)}/miniatura`)
+    .then((response) => (response.ok ? response.blob() : null))
+    .then((blob) => blob && new Promise((resolve) => {
+      const leitor = new FileReader();
+      leitor.onload = () => { historyImageCache.set(id, leitor.result); resolve(leitor.result); };
+      leitor.onerror = () => resolve(null);
+      leitor.readAsDataURL(blob);
+    }));
 }
 
 // Seleção da comparação: imageId escolhido para cada lado, escolhido numa lista suspensa por lado.
@@ -960,13 +890,10 @@ processButton.addEventListener("click", async () => {
     renderAssistenteEstudos(payload.assistente_estudos);
     updateDetails(payload, sourceFile);
 
-    const existingEntries = getHistoryRecords();
-    const storageFailed = await saveProcessedImagesToHistory(processedAssets, existingEntries);
-    renderHistory(getHistoryRecords());
-    renderHistoricMenu();
-    await refreshHistoryComparison();
-    if (storageFailed) {
-      document.querySelector("#history-comparison-status").textContent = "O historico foi salvo, mas algumas imagens nao puderam ser guardadas para comparacao.";
+    // O servidor já gravou cada página no histórico da conta; basta recarregar a lista.
+    await carregarHistorico();
+    if (processedAssets.some((asset) => !asset.historico_id)) {
+      document.querySelector("#history-comparison-status").textContent = "O resultado foi gerado, mas nem todas as imagens puderam ser salvas no histórico.";
     }
 
     activateResultTab("resumo");
@@ -1001,8 +928,7 @@ fetch("/api/health")
     document.querySelector("#backend-status").textContent = "API desconectada";
   });
 
-renderHistoricMenu();
-refreshHistoryComparison();
+carregarHistorico();
 
 // Elementos com data-reveal entram ao aparecer na tela e saem pelo lado em que deixaram a janela.
 const revealItems = document.querySelectorAll("[data-reveal]");

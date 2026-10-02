@@ -8,7 +8,7 @@ from time import perf_counter
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from html import escape
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -16,8 +16,8 @@ from fastapi.staticfiles import StaticFiles
 import cv2
 import fitz
 import numpy as np
-import base64
-import binascii
+import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,7 @@ from .contas import (
     ErroConta, LimiteTentativas, RepositorioContas, email_valido, enviar_email,
     enviar_link_recuperacao, normalizar_email, smtp_configurado,
 )
+from .historico import ArmazenamentoLocal, RepositorioHistoricoSQLite, gerar_miniatura, montar_registro
 from .processamento import LIMITE_LADO, codificar_png, decodificar_imagem, processar, tesseract_disponivel
 from .seguranca import bloquear_outras_origens, chave_site_recaptcha, headers_de_seguranca, verificar_recaptcha
 
@@ -39,13 +40,27 @@ SESSAO_LONGA_SEGUNDOS = 30 * 24 * 60 * 60
 # Caminhos acessíveis sem login: a própria tela de login e as rotas de autenticação.
 ROTAS_PUBLICAS = {"/login", "/privacidade", "/api/health", "/auth/logout"}
 # Versão da política de privacidade aceita no cadastro (LGPD); mude ao alterar o texto da política.
-VERSAO_POLITICA = "2026-10-01"
+VERSAO_POLITICA = "2026-10-02"
 # Arquivos das páginas de login e de privacidade ficam em pastas próprias, liberadas por inteiro;
 # os do laboratório (frontend/laboratorio) continuam exigindo login.
 PREFIXOS_PUBLICOS = ("/api/auth/", "/static/login/", "/static/privacidade/")
 logger = logging.getLogger(__name__)
 
-contas = RepositorioContas(os.getenv("CONTAS_DB") or RAIZ / "contas.db")
+def _criar_repositorios():
+    """Com NEXO_DB_URL no .env, usa o Supabase (Postgres com RLS + Storage); senão, SQLite e pasta local."""
+    url_app = os.getenv("NEXO_DB_URL")
+    if url_app:
+        from .banco_postgres import ArmazenamentoSupabase, BancoPostgres, RepositorioContasPostgres, RepositorioHistoricoPostgres
+        banco = BancoPostgres(url_app)
+        armazenamento = ArmazenamentoSupabase(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+        return (RepositorioContasPostgres(banco, os.getenv("SUPABASE_DB_URL")),
+                RepositorioHistoricoPostgres(banco, armazenamento))
+    caminho = os.getenv("CONTAS_DB") or RAIZ / "contas.db"
+    return (RepositorioContas(caminho),
+            RepositorioHistoricoSQLite(caminho, ArmazenamentoLocal(RAIZ / "dados" / "miniaturas")))
+
+
+contas, historico = _criar_repositorios()
 limite_login = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
 limite_recuperacao = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
 # Cada envio conta como uma "tentativa": no máximo 10 e-mails de histórico por usuário a cada hora.
@@ -54,7 +69,6 @@ limite_compartilhamento = LimiteTentativas(maximo=10, bloqueio_segundos=60 * 60)
 limite_cadastro = LimiteTentativas(maximo=5, bloqueio_segundos=60 * 60)
 limite_processamento = LimiteTentativas(maximo=30, bloqueio_segundos=10 * 60)
 limite_exclusao = LimiteTentativas(maximo=5, bloqueio_segundos=15 * 60)
-TAMANHO_MAXIMO_IMAGEM_EMAIL = 3 * 1024 * 1024
 
 app = FastAPI(
     title="Laboratório de Processamento de Imagens",
@@ -251,7 +265,8 @@ def exportar_meus_dados(request: Request):
         raise HTTPException(404, "Conta não encontrada.")
     return {
         "conta": dados,
-        "observacao": "O histórico de imagens processadas fica somente neste navegador (localStorage e IndexedDB) e não é enviado ao servidor.",
+        "historico": historico.listar(usuario["id"]),
+        "observacao": "As miniaturas de cada registro podem ser baixadas em /api/historico/{id}/miniatura.",
         "exportado_em": time.time(),
     }
 
@@ -264,8 +279,12 @@ def excluir_minha_conta(request: Request, dados: DadosExclusao):
     bloqueio = limite_exclusao.segundos_bloqueado(chave)
     if bloqueio:
         return JSONResponse({"detail": _mensagem_bloqueio(bloqueio)}, status_code=429, headers={"Retry-After": str(bloqueio)})
-    if not contas.excluir(usuario["id"], dados.password):
+    if not contas.autenticar(usuario["email"], dados.password):
         limite_exclusao.registrar_falha(chave)
+        raise HTTPException(400, "Senha incorreta. A conta não foi excluída.")
+    # Primeiro o histórico (inclui as miniaturas no Storage, que a exclusão em cascata do banco não alcança).
+    historico.apagar_tudo(usuario["id"])
+    if not contas.excluir(usuario["id"], dados.password):
         raise HTTPException(400, "Senha incorreta. A conta não foi excluída.")
     request.session.clear()
     return {"detail": "Sua conta e seus dados foram excluídos."}
@@ -312,68 +331,72 @@ def trocar_senha(request: Request, dados: DadosTrocaSenha):
     return {"detail": "Senha alterada com sucesso."}
 
 
-class AssistenteCompartilhado(BaseModel):
-    livro: str = Field("", max_length=300)
-    autor: str = Field("", max_length=300)
-    resumo_estudo: str = Field("", max_length=4000)
-    exercicios_revisao: list[str] = Field(default_factory=list, max_length=10)
-
-
-class RegistroCompartilhado(BaseModel):
-    nome: str = Field(max_length=300)
-    dimensoes: str = Field("", max_length=60)
-    tempo_ms: float | None = None
-    data: str = Field("", max_length=60)
-    status: str = Field("", max_length=60)
-    assistente: AssistenteCompartilhado = Field(default_factory=AssistenteCompartilhado)
-
-
 class DadosCompartilhamento(BaseModel):
     destinatario: str = Field(max_length=254)
     mensagem: str = Field("", max_length=1000)
-    registro: RegistroCompartilhado
-    imagem: str | None = Field(None, description="Miniatura do histórico como data URL JPEG")
+    historico_id: str = Field(max_length=64)
+    anexar_imagem: bool = True
 
 
-def _relatorio_historico(registro: RegistroCompartilhado) -> str:
-    assistente = registro.assistente
-    tempo = f"{registro.tempo_ms / 1000:.2f} s" if registro.tempo_ms is not None else "não informado"
+def _id_registro_valido(registro_id: str) -> str:
+    try:
+        return str(uuid.UUID(registro_id))
+    except ValueError as erro:
+        raise HTTPException(404, "Registro do histórico não encontrado.") from erro
+
+
+def _nome_exibicao(registro: dict) -> str:
+    return registro["nome_arquivo"] + (f" | página {registro['pagina']}" if registro.get("pagina") else "")
+
+
+def _relatorio_historico(registro: dict) -> str:
+    assistente = registro.get("assistente") or {}
+    tempo = f"{registro['tempo_ms'] / 1000:.2f} s" if registro.get("tempo_ms") is not None else "não informado"
+    processado = datetime.fromtimestamp(registro["criado_em"]).strftime("%d/%m/%Y %H:%M")
     linhas = [
-        f"Imagem: {registro.nome}",
-        f"Dimensões: {registro.dimensoes or 'não informadas'}",
+        f"Imagem: {_nome_exibicao(registro)}",
+        f"Dimensões: {registro.get('largura')} x {registro.get('altura')}",
         f"Tempo de processamento: {tempo}",
-        f"Processado em: {registro.data or 'não informado'}",
-        f"Status: {registro.status or 'não informado'}",
-        f"Livro sugerido: {assistente.livro or 'não identificado'}",
-        f"Autor: {assistente.autor or 'não identificado'}",
-        f"Resumo: {assistente.resumo_estudo or 'não disponível'}",
+        f"Processado em: {processado}",
+        f"Texto reconhecido: {'sim' if registro.get('ocr_disponivel') else 'não'} ({registro.get('palavras', 0)} palavras)",
+        f"Livro sugerido: {assistente.get('livro') or 'não identificado'}",
+        f"Autor: {assistente.get('autor') or 'não identificado'}",
+        f"Resumo: {assistente.get('resumo_estudo') or 'não disponível'}",
     ]
-    if assistente.exercicios_revisao:
+    exercicios = [e for e in assistente.get("exercicios_revisao") or [] if isinstance(e, str)]
+    if exercicios:
         linhas += ["", "Exercícios de revisão:"]
-        linhas += [f"{n}. {exercicio[:500]}" for n, exercicio in enumerate(assistente.exercicios_revisao, 1)]
+        linhas += [f"{n}. {exercicio[:500]}" for n, exercicio in enumerate(exercicios[:10], 1)]
+    if registro.get("trecho"):
+        linhas += ["", "Trecho reconhecido:", registro["trecho"]]
     return "\n".join(linhas)
 
 
-def _decodificar_miniatura(data_url: str | None) -> bytes | None:
-    if not data_url:
-        return None
-    prefixo = "data:image/jpeg;base64,"
-    if not data_url.startswith(prefixo):
-        raise HTTPException(400, "A imagem do histórico está em um formato inesperado.")
-    try:
-        conteudo = base64.b64decode(data_url[len(prefixo):], validate=True)
-    except (binascii.Error, ValueError) as erro:
-        raise HTTPException(400, "Não foi possível ler a imagem do histórico.") from erro
-    if len(conteudo) > TAMANHO_MAXIMO_IMAGEM_EMAIL:
-        raise HTTPException(413, "A imagem do histórico é grande demais para enviar por e-mail.")
-    return conteudo
+@app.get("/api/historico")
+def listar_historico(request: Request):
+    usuario = _usuario_logado(request)
+    return {"registros": historico.listar(usuario["id"])}
+
+
+@app.get("/api/historico/{registro_id}/miniatura")
+def miniatura_do_historico(request: Request, registro_id: str):
+    usuario = _usuario_logado(request)
+    conteudo = historico.miniatura(usuario["id"], _id_registro_valido(registro_id))
+    if not conteudo:
+        raise HTTPException(404, "Miniatura não encontrada.")
+    # Imagem privada da conta: o navegador pode guardar, mas nenhum cache compartilhado.
+    return Response(conteudo, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+
+@app.delete("/api/historico")
+def apagar_historico(request: Request):
+    usuario = _usuario_logado(request)
+    return {"apagados": historico.apagar_tudo(usuario["id"])}
 
 
 @app.post("/api/historico/enviar")
 def compartilhar_historico(request: Request, dados: DadosCompartilhamento):
-    usuario = usuario_da_sessao(request)
-    if not usuario:
-        raise HTTPException(401, "Faça login para continuar.")
+    usuario = _usuario_logado(request)
     destinatario = normalizar_email(dados.destinatario)
     if not email_valido(destinatario):
         raise HTTPException(400, "Informe um e-mail de destino válido.")
@@ -384,21 +407,27 @@ def compartilhar_historico(request: Request, dados: DadosCompartilhamento):
     if bloqueio:
         return JSONResponse({"detail": f"Limite de envios atingido. {_mensagem_bloqueio(bloqueio)}"}, status_code=429, headers={"Retry-After": str(bloqueio)})
 
-    miniatura = _decodificar_miniatura(dados.imagem)
+    # O conteúdo vem do banco, filtrado pela conta logada: o navegador só indica qual registro.
+    registro_id = _id_registro_valido(dados.historico_id)
+    registro = historico.obter(usuario["id"], registro_id)
+    if not registro:
+        raise HTTPException(404, "Registro do histórico não encontrado.")
+    miniatura = historico.miniatura(usuario["id"], registro_id) if dados.anexar_imagem else None
+
     remetente = usuario.get("name") or usuario.get("email") or "Um usuário"
-    relatorio = _relatorio_historico(dados.registro)
+    relatorio = _relatorio_historico(registro)
     corpo = [f"{remetente} compartilhou com você um resultado do NeXo Estudos.", ""]
     if dados.mensagem.strip():
         corpo += ["Mensagem:", dados.mensagem.strip(), ""]
     corpo += ["---", relatorio, "---", "", "Para responder, basta responder a este e-mail."]
-    nome_base = "".join(c if c.isalnum() or c in "-_" else "-" for c in dados.registro.nome.rsplit(".", 1)[0])[:60] or "imagem"
+    nome_base = "".join(c if c.isalnum() or c in "-_" else "-" for c in registro["nome_arquivo"].rsplit(".", 1)[0])[:60] or "imagem"
     anexos = [(f"{nome_base}-relatorio.txt", relatorio.encode("utf-8"), "text/plain")]
     if miniatura:
         anexos.append((f"{nome_base}.jpg", miniatura, "image/jpeg"))
     try:
         enviar_email(
             destinatario,
-            f"{remetente} compartilhou um resultado do NeXo Estudos: {dados.registro.nome[:80]}",
+            f"{remetente} compartilhou um resultado do NeXo Estudos: {_nome_exibicao(registro)[:80]}",
             "\n".join(corpo),
             anexos,
             responder_para=usuario.get("email"),
@@ -477,6 +506,20 @@ def _decodificar_pdf(conteudo: bytes) -> list[np.ndarray]:
     return imagens
 
 
+def _salvar_no_historico(usuario: dict, nome_arquivo: str, pagina: int | None, resultado, largura: int,
+                         altura: int, tempo_ms: float) -> str | None:
+    """Grava o processamento no histórico da conta. Uma falha aqui não impede o resultado de voltar."""
+    if not usuario.get("id"):
+        return None
+    try:
+        registro = montar_registro(nome_arquivo, pagina, largura, altura, tempo_ms, resultado.ocr_disponivel,
+                                   resultado.inclinacao_corrigida_graus, resultado.texto, resultado.assistente_estudos)
+        return historico.adicionar(usuario["id"], registro, gerar_miniatura(resultado.original))["id"]
+    except Exception:
+        logger.exception("Não foi possível salvar o processamento no histórico")
+        return None
+
+
 @app.post("/api/processar")
 async def processar_arquivo(request: Request, arquivos: list[UploadFile] = File(...)):
     # O OCR é pesado: limitar por usuário evita que uma conta derrube o servidor com envios em massa.
@@ -528,6 +571,8 @@ async def processar_arquivo(request: Request, arquivos: list[UploadFile] = File(
                         "tons_cinza": codificar_png(resultado.tons_cinza),
                         "processada": codificar_png(resultado.tratada),
                     },
+                    "historico_id": _salvar_no_historico(
+                        usuario, nome_arquivo, indice if eh_pdf else None, resultado, largura, altura, tempo_ms),
                 })
         except ValueError as erro:
             raise HTTPException(400, str(erro)) from erro

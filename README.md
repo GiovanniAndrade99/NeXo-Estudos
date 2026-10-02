@@ -28,6 +28,14 @@ O pipeline de processamento de imagens foi ajustado e avaliado com o dataset pú
 
 *F1 das palavras reconhecidas pelo OCR em relação ao texto anotado.* Metodologia, resultados por imagem e instruções para reproduzir: [docs/AVALIACAO.md](docs/AVALIACAO.md).
 
+## Banco de dados (Supabase)
+
+As contas e o histórico de processamentos ficam no **Postgres do Supabase**, e as miniaturas das imagens no **Supabase Storage** (bucket privado `miniaturas`). A estrutura está versionada em [`supabase/migrations/`](supabase/migrations/) e documentada em [`supabase/README.md`](supabase/README.md).
+
+- Tabelas no schema `nexo`, que não é exposto pela API pública do Supabase: `usuarios`, `tokens_senha` e `processamentos`.
+- **Row Level Security**: o backend se conecta como o papel `nexo_app` e informa a conta logada a cada operação; o banco só libera as linhas dessa conta.
+- Sem `NEXO_DB_URL` no `.env`, o projeto usa SQLite (`contas.db`) e a pasta `dados/miniaturas`, o que é útil para desenvolvimento e é o modo usado pelos testes automáticos.
+
 ## Requisitos
 
 - Python 3.11 ou superior.
@@ -95,7 +103,9 @@ Salve as capturas da interface em `docs/screenshots/` e atualize esta secao com 
 ```text
 backend/
   main.py             # API FastAPI, conversao de PDF e servidor do frontend
-  contas.py           # contas, login, recuperacao de senha e envio de e-mail
+  contas.py           # contas (SQLite), login, recuperacao de senha e envio de e-mail
+  banco_postgres.py   # contas e historico no Supabase (Postgres com RLS + Storage)
+  historico.py        # historico de processamentos (SQLite + pasta local)
   processamento.py    # processamento de imagem e OCR
   seguranca.py        # headers, checagem de origem (CSRF) e reCAPTCHA
 frontend/             # uma pasta por pagina, com o HTML, o JS, o CSS e as imagens que ela usa
@@ -116,8 +126,12 @@ docs/
   PIPELINE.md         # funcionamento, pipeline e integracao com IA
   AVALIACAO.md        # avaliacao com o dataset FUNSD
   avaliacao/          # resultados por imagem e figura de exemplo
+supabase/
+  migrations/         # estrutura do banco (tabelas, RLS, funcoes e bucket)
+  README.md           # como aplicar as migracoes
 tools/
   avaliar_ocr.py                # avaliacao do pipeline com o FUNSD
+  migrar_contas_para_supabase.py  # copia as contas do contas.db para o Supabase
   gerar_imagens_fundamentos.py  # gera as imagens da aba Fundamentos
 tests/
   test_assistente_estudos.py

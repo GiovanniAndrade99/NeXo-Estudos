@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend import main
 from backend.contas import LimiteTentativas, RepositorioContas
+from backend.historico import ArmazenamentoLocal, RepositorioHistoricoSQLite
 
 ADMIN = ("admin@exemplo.com", "senha-segura-123")
 ANA = ("ana@exemplo.com", "girassol-azul-7")
@@ -33,6 +34,7 @@ class BaseSeguranca(unittest.TestCase):
         self.repositorio.definir_admin(*ADMIN)
         for nome, valor in {
             "contas": self.repositorio,
+            "historico": RepositorioHistoricoSQLite(self.caminho_db, ArmazenamentoLocal(Path(self.pasta.name) / "miniaturas")),
             "limite_login": LimiteTentativas(maximo=5, bloqueio_segundos=900),
             "limite_recuperacao": LimiteTentativas(maximo=5, bloqueio_segundos=900),
             "limite_cadastro": LimiteTentativas(maximo=5, bloqueio_segundos=3600),
