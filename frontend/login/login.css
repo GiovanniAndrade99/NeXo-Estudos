@@ -143,6 +143,30 @@ button,input {
   border-color:#94bd69;
   box-shadow:0 0 0 3px rgba(151,196,103,.14)
 }
+.email-input-wrap {
+  border-color:#9bdcf0;
+  background:#effbff
+}
+.email-input-wrap:focus-within {
+  border-color:#08a8d5;
+  box-shadow:0 0 0 3px rgba(8,168,213,.16)
+}
+.email-input-wrap>svg {
+  stroke:#0789bd
+}
+.password-input-wrap {
+  border-color:#c6e59a;
+  background:#f7ffed
+}
+.password-input-wrap:focus-within {
+  border-color:#88bd3f;
+  box-shadow:0 0 0 3px rgba(136,189,63,.17)
+}
+.password-input-wrap>svg,
+.password-input-wrap .password-toggle {
+  color:#67952b;
+  stroke:#67952b
+}
 .input-wrap>svg {
   width:17px;
   height:17px;
@@ -338,6 +362,7 @@ button,input {
   height: 100%;
   object-fit: cover;
   object-position: center 30%;
+  filter: brightness(1.16) saturate(1.28) contrast(1.04);
 }
 .login-message[data-type="error"] { border-color: #f1c4c4; background: #fdf1f1; color: #9b2c2c; }
 .login-message[data-type="success"] { border-color: #bfe3c8; background: #eefaf1; color: #22683a; }
