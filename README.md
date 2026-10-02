@@ -19,12 +19,14 @@ A documentação detalhada do funcionamento, das etapas de processamento de imag
 
 ## Dataset e avaliação
 
-O pipeline de processamento de imagens foi ajustado e avaliado com o dataset público **FUNSD** (formulários digitalizados com o texto anotado manualmente): <https://guillaumejaume.github.io/FUNSD/>. O projeto não treina modelo próprio; o FUNSD é usado para medir o ganho do pré-processamento no OCR.
+O pipeline de processamento de imagens foi ajustado e avaliado com o dataset público **FUNSD** (formulários digitalizados com o texto anotado manualmente): <https://guillaumejaume.github.io/FUNSD/>. O FUNSD é usado para medir o ganho do pré-processamento no OCR. Para identificar a matéria do texto, o projeto treina um classificador (TF-IDF + Regressão Logística) com um dataset de trechos da Wikipédia em português: [docs/CLASSIFICADOR.md](docs/CLASSIFICADOR.md).
 
 | Condição (50 imagens de teste) | Sem pré-processamento | Com o pipeline |
 |---|---|---|
 | Scan original | 61,3% | **72,1%** |
 | Foto simulada (sombra, ruído e inclinação) | 32,4% | **67,6%** |
+
+| Foto em perspectiva (folha fotografada de lado) | 46,0% | **63,3%** |
 
 *F1 das palavras reconhecidas pelo OCR em relação ao texto anotado.* Metodologia, resultados por imagem e instruções para reproduzir: [docs/AVALIACAO.md](docs/AVALIACAO.md).
 

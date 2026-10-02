@@ -8,8 +8,7 @@ from time import perf_counter
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
-from html import escape
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -40,10 +39,10 @@ SESSAO_LONGA_SEGUNDOS = 30 * 24 * 60 * 60
 # Caminhos acessíveis sem login: a própria tela de login e as rotas de autenticação.
 ROTAS_PUBLICAS = {"/login", "/privacidade", "/api/health", "/auth/logout"}
 # Versão da política de privacidade aceita no cadastro (LGPD); mude ao alterar o texto da política.
-VERSAO_POLITICA = "2026-10-02"
+VERSAO_POLITICA = "2026-10-02.2"
 # Arquivos das páginas de login e de privacidade ficam em pastas próprias, liberadas por inteiro;
 # os do laboratório (frontend/laboratorio) continuam exigindo login.
-PREFIXOS_PUBLICOS = ("/api/auth/", "/static/login/", "/static/privacidade/")
+PREFIXOS_PUBLICOS = ("/api/auth/", "/api/privacidade/", "/static/login/", "/static/privacidade/")
 logger = logging.getLogger(__name__)
 
 def _criar_repositorios():
@@ -237,7 +236,7 @@ def cadastrar(request: Request, dados: DadosCadastro):
     if bloqueio:
         return JSONResponse({"detail": _mensagem_bloqueio(bloqueio)}, status_code=429, headers={"Retry-After": str(bloqueio)})
     if not dados.accept_privacy:
-        raise HTTPException(400, "Para criar a conta, leia e aceite a Política de Privacidade.")
+        raise HTTPException(400, "Para criar a conta, leia e aceite o Aviso de Privacidade.")
     _exigir_captcha(request, dados.captcha)
     limite_cadastro.registrar_falha(chave)
     try:
@@ -300,11 +299,13 @@ def aceitar_politica(request: Request):
 
 @app.get("/privacidade", include_in_schema=False)
 def pagina_privacidade():
-    # O contato do controlador vem do .env, para não deixar um e-mail fixo no código.
-    contato = os.getenv("PRIVACIDADE_CONTATO") or os.getenv("SMTP_FROM") or os.getenv("SMTP_USER") or "o responsável pelo projeto"
-    html = (PASTA_FRONTEND / "privacidade" / "privacidade.html").read_text(encoding="utf-8")
-    html = html.replace("{{CONTATO}}", escape(contato)).replace("{{VERSAO}}", VERSAO_POLITICA)
-    return HTMLResponse(html)
+    return RedirectResponse("/login?privacidade=1", status_code=303)
+
+
+@app.get("/api/privacidade/contato", include_in_schema=False)
+def contato_privacidade():
+    contato = os.getenv("PRIVACIDADE_CONTATO") or os.getenv("SMTP_FROM") or os.getenv("SMTP_USER") or ""
+    return {"email": contato if "@" in contato else ""}
 
 
 @app.post("/api/auth/password")
@@ -561,6 +562,7 @@ async def processar_arquivo(request: Request, arquivos: list[UploadFile] = File(
                     "dimensoes": {"largura": largura, "altura": altura},
                     "tempo_processamento_ms": tempo_ms,
                     "inclinacao_corrigida_graus": resultado.inclinacao_corrigida_graus,
+                    "perspectiva_corrigida": resultado.perspectiva_corrigida,
                     "ocr_disponivel": resultado.ocr_disponivel,
                     "aviso": resultado.aviso,
                     "texto": resultado.texto,

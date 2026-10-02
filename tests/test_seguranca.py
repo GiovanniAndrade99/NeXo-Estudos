@@ -106,7 +106,7 @@ class TestLgpd(BaseSeguranca):
     def test_cadastro_exige_aceitar_politica(self):
         resposta = self.cadastrar("Ana", *ANA, accept_privacy=False)
         self.assertEqual(resposta.status_code, 400)
-        self.assertIn("Política de Privacidade", resposta.json()["detail"])
+        self.assertIn("Aviso de Privacidade", resposta.json()["detail"])
 
     def test_consentimento_fica_registrado(self):
         self.cadastrar("Ana", *ANA)
@@ -123,9 +123,20 @@ class TestLgpd(BaseSeguranca):
         self.assertIsNone(self.repositorio.buscar_por_email(ANA[0]))
 
     def test_politica_e_publica(self):
-        resposta = TestClient(main.app).get("/privacidade")
-        self.assertEqual(resposta.status_code, 200)
-        self.assertIn("Política de Privacidade", resposta.text)
+        cliente = TestClient(main.app)
+        resposta = cliente.get("/privacidade", follow_redirects=False)
+        self.assertEqual(resposta.status_code, 303)
+        self.assertEqual(resposta.headers["location"], "/login?privacidade=1")
+
+        aviso = cliente.get(resposta.headers["location"])
+        self.assertEqual(aviso.status_code, 200)
+        for informacao in ("privacy-dialog", "Supabase", "Gmail", "Google reCAPTCHA", "Estados Unidos", "us-east-1", "50 resultados", "400 caracteres", "30 minutos", "1 hora"):
+            self.assertIn(informacao, aviso.text)
+        self.assertNotIn("Row Level Security", aviso.text)
+        self.assertEqual(cliente.get("/static/privacidade/privacidade.js").status_code, 200)
+        contato = cliente.get("/api/privacidade/contato")
+        self.assertEqual(contato.status_code, 200)
+        self.assertIn("email", contato.json())
 
 
 class TestSenhas(BaseSeguranca):

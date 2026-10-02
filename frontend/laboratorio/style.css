@@ -980,6 +980,10 @@ button, input { font: inherit; }
   color: #dfeeff;
   line-height: 1.5;
 }
+.answer-key { margin-top: 12px; color: #a9b5c6; font-size: 13px; }
+.answer-key summary { width: fit-content; color: var(--accent); font-weight: 700; cursor: pointer; }
+.answer-key ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.answer-key li { color: #dfeeff; }
 .steps-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1807,7 +1811,7 @@ button, input { font: inherit; }
 }
 .border-glow-card > :not(.edge-light) { position: relative; z-index: 2; }
 
-/* Perfil: hero com editor de código digitando o pipeline. */
+/* Perfil: resumo dos recursos disponíveis ao estudante. */
 .screen[data-screen-content="perfil"] {
   max-width: 1280px;
   margin: 0 auto;

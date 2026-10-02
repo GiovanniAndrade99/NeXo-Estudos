@@ -8,8 +8,10 @@ venv/
 .tessdata/
 contas.db
 
-# Datasets baixados por tools/avaliar_ocr.py (não redistribuir; ver docs/AVALIACAO.md)
-datasets/
+# FUNSD: baixado por tools/avaliar_ocr.py; a licença não permite redistribuir (ver docs/AVALIACAO.md).
+# O dataset da Wikipédia (datasets/materias_wikipedia.jsonl) é versionado: CC BY-SA, com atribuição.
+datasets/funsd/
+datasets/funsd.zip
 
 # Miniaturas do histórico no modo local (sem Supabase)
 dados/

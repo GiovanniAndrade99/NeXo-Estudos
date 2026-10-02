@@ -6,8 +6,9 @@ texto de cada palavra anotado manualmente), o OCR é executado:
   * sem pré-processamento: Tesseract direto na imagem;
   * com o pipeline do projeto: a mesma função backend.processamento.processar() usada pela API.
 
-As duas situações são testadas nos scans originais e em versões degradadas para simular
-uma foto de celular (iluminação desigual, tom amarelado, ruído e inclinação).
+As duas situações são testadas nos scans originais, em versões degradadas para simular
+uma foto de celular (iluminação desigual, tom amarelado, ruído e inclinação) e em fotos
+da folha tirada de lado sobre uma mesa (perspectiva).
 
 A métrica compara o multiconjunto de palavras reconhecidas com o das palavras anotadas
 (precisão, revocação e F1), sem depender da ordem de leitura.
@@ -92,6 +93,22 @@ def degradar(imagem: np.ndarray, semente: int) -> np.ndarray:
     return cv2.warpAffine(foto, matriz, (largura, altura), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
 
+def fotografar_em_perspectiva(imagem: np.ndarray, semente: int) -> np.ndarray:
+    """Simula a folha fotografada de lado sobre uma mesa escura: perspectiva aleatória, fundo com ruído."""
+    rng = np.random.default_rng(semente)
+    altura, largura = imagem.shape[:2]
+    alto, largo = int(altura * 1.5), int(largura * 1.6)
+    fundo = np.full((alto, largo, 3), (70, 85, 110), np.float32) + rng.normal(0, 12, (alto, largo, 3))
+    folga = lambda: rng.uniform(0.02, 0.12)
+    cantos = np.float32([[largo * (0.15 + folga()), alto * (0.10 + folga())], [largo * (0.85 - folga()), alto * (0.08 + folga())],
+                         [largo * (0.90 - folga()), alto * (0.92 - folga())], [largo * (0.10 + folga()), alto * (0.90 - folga())]])
+    matriz = cv2.getPerspectiveTransform(np.float32([[0, 0], [largura, 0], [largura, altura], [0, altura]]), cantos)
+    folha = cv2.warpPerspective(imagem, matriz, (largo, alto), flags=cv2.INTER_LINEAR)
+    dentro = cv2.warpPerspective(np.ones((altura, largura), np.uint8), matriz, (largo, alto)) > 0
+    fundo[dentro] = folha[dentro]
+    return np.clip(fundo, 0, 255).astype(np.uint8)
+
+
 def ocr_direto(imagem: np.ndarray) -> str:
     rgb = cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB)
     config = f"--psm 6 {_configurar_tesseract()}".strip()
@@ -120,7 +137,8 @@ def main() -> None:
     for n, anotacao in enumerate(anotacoes, 1):
         imagem = cv2.imread(str(PASTA_TESTE / "images" / f"{anotacao.stem}.png"))
         esperadas = texto_anotado(anotacao)
-        for condicao, entrada in (("scan original", imagem), ("foto simulada", degradar(imagem, semente=n))):
+        for condicao, entrada in (("scan original", imagem), ("foto simulada", degradar(imagem, semente=n)),
+                                 ("foto em perspectiva", fotografar_em_perspectiva(imagem, semente=n))):
             texto_pipeline, angulo = ocr_pipeline(entrada)
             for metodo, texto in (("sem pré-processamento", ocr_direto(entrada)), ("pipeline do projeto", texto_pipeline)):
                 precisao, revocacao, f1 = comparar(palavras(texto), esperadas)
@@ -140,7 +158,7 @@ def main() -> None:
     print(f"\nFUNSD (teste), {len(anotacoes)} imagens — médias por imagem\n")
     print("| Condição | Método | Precisão | Revocação | F1 |")
     print("|---|---|---|---|---|")
-    for condicao in ("scan original", "foto simulada"):
+    for condicao in ("scan original", "foto simulada", "foto em perspectiva"):
         for metodo in ("sem pré-processamento", "pipeline do projeto"):
             grupo = [l for l in linhas if l["condicao"] == condicao and l["metodo"] == metodo]
             media = {k: 100 * sum(l[k] for l in grupo) / len(grupo) for k in ("precisao", "revocacao", "f1")}

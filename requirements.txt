@@ -10,3 +10,5 @@ python-dotenv>=1.0
 itsdangerous>=2.2
 psycopg[binary]>=3.2
 psycopg-pool>=3.2
+# O modelo em backend/modelos foi salvo com o scikit-learn 1.9; outra versão menor pode não carregar.
+scikit-learn>=1.9,<1.10

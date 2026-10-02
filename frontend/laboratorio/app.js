@@ -121,10 +121,13 @@ document.querySelector("#privacy-clear-history")?.addEventListener("click", asyn
 });
 
 document.querySelector("#privacy-accept")?.addEventListener("click", async () => {
-  window.open("/privacidade", "_blank", "noopener");
-  if (!window.confirm("Você leu e aceita a Política de Privacidade?")) return;
+  document.querySelector("#privacy-dialog")?.showModal();
+});
+
+document.querySelector("#privacy-confirm")?.addEventListener("click", async () => {
   const response = await fetch("/api/conta/consentimento", { method: "POST" }).catch(() => null);
   if (response?.ok) {
+    document.querySelector("#privacy-dialog")?.close();
     document.querySelector("#privacy-consent").hidden = true;
     document.querySelector("#privacy-status").textContent = `Aceita em ${new Date().toLocaleDateString("pt-BR")}`;
     showPrivacyMessage("Consentimento registrado.", "success");
@@ -529,6 +532,7 @@ function renderAssistenteEstudos(assistente) {
     assistantFigures.innerHTML = "<li>Sem figuras detectadas</li>";
     studySummary.textContent = "O assistente ainda não gerou um resumo para esta imagem.";
     studyExercises.innerHTML = "<li>Sem exercícios gerados ainda.</li>";
+    document.querySelector("#study-answers").hidden = true;
     return;
   }
 
@@ -549,6 +553,13 @@ function renderAssistenteEstudos(assistente) {
     : ["Revise os conceitos principais da imagem e descreva com suas próprias palavras o tema central."];
 
   studyExercises.innerHTML = exercicios.slice(0, 3).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+
+  // Gabarito das lacunas: fica recolhido para o aluno tentar antes de conferir.
+  const gabarito = Array.isArray(assistente.gabarito_exercicios) ? assistente.gabarito_exercicios.slice(0, 3) : [];
+  const respostas = document.querySelector("#study-answers");
+  respostas.open = false;
+  respostas.hidden = !gabarito.some((resposta) => resposta && resposta !== "Resposta pessoal.");
+  document.querySelector("#study-answers-list").innerHTML = gabarito.map((resposta) => `<li>${escapeHtml(resposta)}</li>`).join("");
 }
 
 function getHistoryRecords() {
@@ -571,7 +582,7 @@ function renderHistoricMenu() {
   });
 }
 
-// Histórico guardado no servidor (Supabase): o navegador só mantém uma cópia em memória.
+// Carrega os resultados salvos na conta para exibir o histórico.
 let historyCache = [];
 const historyImageCache = new Map();
 
@@ -970,7 +981,8 @@ const heroCursorPos = document.querySelector("#hero-cursor-pos");
 const HERO_CODIGO = [
   "# pipeline.py · do pixel ao texto",
   "def processar(imagem):",
-  "    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)",
+  "    folha, _ = corrigir_perspectiva(imagem)",
+  "    cinza = cv2.cvtColor(folha, cv2.COLOR_BGR2GRAY)",
   "    uniforme = normalizar_iluminacao(ampliar(cinza))",
   "    limpa = cv2.medianBlur(uniforme, 3)",
   "    _, binaria = cv2.threshold(",
@@ -981,6 +993,7 @@ const HERO_CODIGO = [
 ];
 const HERO_TERMINAL = [
   ["t-cmd", "python -m nexo processar apostila.jpg"],
+  ["t-ok", "perspectiva corrigida    0.04s"],
   ["t-ok", "tons de cinza            0.02s"],
   ["t-ok", "iluminação uniforme      0.05s"],
   ["t-ok", "binarização (Otsu)       0.03s"],

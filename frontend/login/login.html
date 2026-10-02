@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/login/login.css">
+  <link rel="stylesheet" href="/static/privacidade/privacidade.css">
+  <script src="/static/privacidade/privacidade.js" defer></script>
   <script src="/static/login/login.js" defer></script>
 </head>
 <body>
@@ -53,7 +55,7 @@
           <div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="3"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg><input id="signup-password" name="password" type="password" placeholder="Mínimo de 8 caracteres" autocomplete="new-password" minlength="8" required><button class="password-toggle" type="button" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.2-6 9.5-6 9.5 6 9.5 6-3.2 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></div>
           <label for="signup-confirm">Confirme a senha</label>
           <div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="3"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg><input id="signup-confirm" name="confirm" type="password" placeholder="Repita a senha" autocomplete="new-password" minlength="8" required><button class="password-toggle" type="button" aria-label="Mostrar senha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.2-6 9.5-6 9.5 6 9.5 6-3.2 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></div>
-            <label class="remember-row consent-row"><input type="checkbox" name="accept_privacy" required><span class="custom-check"></span><span>Li e aceito a <a href="/privacidade" target="_blank" rel="noopener">Política de Privacidade</a></span></label>
+            <div class="consent-row"><label class="remember-row"><input type="checkbox" name="accept_privacy" required><span class="custom-check"></span><span>Li e aceito o Aviso de Privacidade</span></label><button class="inline-policy" type="button" data-privacy-open>Consultar</button></div>
             <div class="captcha-box" data-captcha hidden></div>
             <button class="submit-button" type="submit"><span>Criar conta</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
             <p class="login-message" role="status" hidden></p>
@@ -93,8 +95,25 @@
           <p class="view-footer"><button class="text-button" type="button" data-go="login">&#8592; Voltar para o login</button></p>
         </div>
       </div>
-      <div class="auth-legal"><span>Entre com segurança</span><a href="/privacidade">Política de Privacidade</a></div>
+      <div class="auth-legal"><span>Entre com segurança</span><button class="inline-policy" type="button" data-privacy-open>Privacidade e cookies</button></div>
     </section>
   </main>
+  <aside class="cookie-notice" id="cookie-notice" aria-label="Aviso de cookies" hidden>
+    <div><strong>Privacidade e cookies</strong><p>Usamos cookies e armazenamento local essenciais para manter sua sessão, proteger sua conta e lembrar que você dispensou este aviso. Não usamos cookies publicitários.</p></div>
+    <div class="cookie-actions"><button type="button" class="cookie-details" data-privacy-open>Ver detalhes</button><button type="button" class="cookie-dismiss" data-cookie-dismiss>Entendi</button></div>
+  </aside>
+  <dialog class="privacy-dialog" id="privacy-dialog" aria-labelledby="privacy-title">
+    <form method="dialog"><button class="privacy-close" aria-label="Fechar">×</button></form>
+    <p class="privacy-kicker">PRIVACIDADE E COOKIES</p><h2 id="privacy-title">Como cuidamos dos seus dados</h2>
+    <p>Usamos cookies e armazenamento local essenciais para manter você conectado, proteger sua conta e lembrar sua escolha neste aviso. Não utilizamos cookies para publicidade.</p>
+    <p class="privacy-controller">Controlador: responsável pelo projeto NeXo Estudos. A conta e os recursos solicitados são tratados para prestar o serviço; dados técnicos de acesso também são usados para segurança.</p>
+    <details><summary>Dados tratados e para que usamos</summary><p>Nome, e-mail e senha são usados para criar e proteger sua conta. O endereço IP e sinais técnicos de acesso são usados para prevenir abusos. As imagens e os PDFs enviados são processados para gerar texto e materiais de estudo; o arquivo original não é mantido após o processamento.</p><p>Quando você mantém um resultado no histórico, guardamos o nome do arquivo, a página, dimensões, tempo de processamento, um trecho de até 400 caracteres do texto reconhecido, sugestões de estudo e uma miniatura da imagem.</p></details>
+    <details><summary>Quem recebe os dados e onde ficam</summary><ul><li><strong>Supabase:</strong> guarda os dados da conta, o histórico e as miniaturas. O projeto usado pelo serviço fica nos Estados Unidos, na região leste us-east-1.</li><li><strong>Gmail/Google:</strong> quando Gmail é o serviço de e-mail configurado, recebe endereços e conteúdo de mensagens de recuperação de senha e, se você compartilhar, o resultado e a miniatura opcional. Se outro serviço de e-mail for configurado, ele recebe esses dados.</li><li><strong>Google reCAPTCHA:</strong> quando ativado nos formulários, recebe dados técnicos do navegador e da interação para ajudar a prevenir abuso. Veja a <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">política de privacidade do Google</a>.</li><li><strong>Google Fonts:</strong> ao carregar as fontes da página, o navegador envia dados de conexão, como o endereço IP, ao Google. Veja também a <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">política do Google</a>.</li></ul></details>
+    <details><summary>Por quanto tempo guardamos</summary><ul><li>Conta: enquanto ela permanecer ativa.</li><li>Histórico: os 50 resultados mais recentes por conta. Ao atingir o limite, os mais antigos e suas miniaturas são removidos; você também pode apagar o histórico ou excluir a conta.</li><li>Imagem ou PDF original: durante o processamento; não é mantido depois.</li><li>Links de recuperação: 30 minutos, com uso único.</li><li>Dados técnicos usados para limitar tentativas: por até 1 hora.</li><li>Cookie de sessão: 8 horas, ou 30 dias quando você escolhe “manter conectado”.</li><li>Os serviços de terceiros seguem os prazos descritos nas políticas vinculadas acima.</li></ul></details>
+    <details><summary>Seus direitos</summary><p>Você pode confirmar e acessar os dados, pedir correção, anonimização, bloqueio ou eliminação quando cabível, solicitar informação sobre compartilhamentos, revogar consentimento e pedir portabilidade conforme as regras aplicáveis. Você também pode baixar seus dados, apagar o histórico ou excluir a conta nas configurações. Para exercer seus direitos ou falar com a ANPD, contate o controlador pelo endereço abaixo.</p></details>
+    <p class="privacy-contact-row" hidden>Dúvidas ou solicitações: <a id="privacy-contact" rel="nofollow"></a></p>
+    <p class="privacy-dialog-note">A criação da conta exige o aceite deste aviso. O botão “Entendi” do aviso de cookies apenas fecha a mensagem; ele não substitui esse aceite.</p>
+    <button type="button" class="privacy-accept" id="privacy-confirm" data-dialog-close>Fechar aviso</button>
+  </dialog>
 </body>
 </html>

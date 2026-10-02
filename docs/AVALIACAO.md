@@ -19,10 +19,13 @@ O dataset não é redistribuído neste repositório: o script `tools/avaliar_ocr
 
 ### Condições de teste
 
-Cada imagem de teste é avaliada em duas condições:
+Cada imagem de teste é avaliada em três condições:
 
 1. **Scan original:** a imagem como está no FUNSD (digitalização em tons de cinza, com ruído típico de fax e scanner).
-2. **Foto simulada:** a mesma imagem degradada para imitar uma foto de celular — papel amarelado, sombra partindo de um canto, ruído de sensor e inclinação aleatória entre 3° e 6°. A degradação usa uma semente fixa por imagem, então os resultados são reproduzíveis.
+2. **Foto simulada:** a mesma imagem degradada para imitar uma foto de celular — papel amarelado, sombra partindo de um canto, ruído de sensor e inclinação aleatória entre 3° e 6°.
+3. **Foto em perspectiva:** a folha "fotografada de lado" sobre uma mesa escura, com cantos deslocados aleatoriamente (o quadrilátero da folha fica torto e cercado de fundo).
+
+As degradações usam uma semente fixa por imagem, então os resultados são reproduzíveis.
 
 ### Métodos comparados
 
@@ -55,9 +58,12 @@ Médias por imagem:
 | Scan original | **Pipeline do projeto** | **70,7%** | **74,1%** | **72,1%** |
 | Foto simulada | Sem pré-processamento | 43,6% | 27,9% | 32,4% |
 | Foto simulada | **Pipeline do projeto** | **66,5%** | **69,4%** | **67,6%** |
+| Foto em perspectiva | Sem pré-processamento | 49,7% | 44,1% | 46,0% |
+| Foto em perspectiva | **Pipeline do projeto** | **62,4%** | **65,0%** | **63,3%** |
 
 - **Scan original:** o pipeline aumentou o F1 em 10,8 pontos percentuais. Melhorou 45 das 50 imagens (mediana do ganho: 6,4 p.p.).
 - **Foto simulada:** o pipeline aumentou o F1 em 35,2 pontos percentuais. Melhorou 49 das 50 imagens (mediana do ganho: 35,2 p.p.).
+- **Foto em perspectiva:** o pipeline aumentou o F1 em 17,3 pontos percentuais. Para isolar a etapa de correção de perspectiva, o pipeline foi rodado também **sem** ela nessas fotos: o F1 cai para 39,8% (abaixo até do OCR direto, porque a mesa em volta atrapalha a normalização de iluminação e a binarização). A correção de perspectiva sozinha responde por **+23,5 pontos**. Nos scans e nas fotos simuladas ela não é acionada e os resultados ficaram idênticos aos anteriores.
 - **Correção de inclinação:** nas fotos simuladas (inclinadas entre 3° e 6°), o erro médio do ângulo após a correção foi de 0,30°; 40 das 50 imagens ficaram com erro de até 0,5°.
 
 Os resultados de cada imagem estão em [`avaliacao/resultados.csv`](avaliacao/resultados.csv).

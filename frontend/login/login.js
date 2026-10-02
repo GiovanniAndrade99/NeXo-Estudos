@@ -146,7 +146,7 @@ handleSubmit(document.querySelector("#login-form"), async (form) => {
 handleSubmit(document.querySelector("#signup-form"), async (form) => {
   if (!passwordsMatch(form)) return;
   if (!form.accept_privacy.checked) {
-    showMessage(form, "Para criar a conta, leia e aceite a Política de Privacidade.");
+    showMessage(form, "Para criar a conta, leia e aceite o Aviso de Privacidade.");
     return;
   }
   const result = await postJson("/api/auth/signup", {

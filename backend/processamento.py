@@ -11,6 +11,9 @@ import cv2
 import numpy as np
 import pytesseract
 
+from .classificador import classificar_materia
+from .perspectiva import corrigir_perspectiva
+from .exercicios import montar_exercicios
 from .resumo import resumir
 
 IDIOMAS_OCR = os.getenv("OCR_LANGUAGES", "por+eng")
@@ -142,6 +145,7 @@ class ResultadoProcessamento:
     aviso: str | None = None
     assistente_estudos: dict | None = None
     descricao_processo: str = ""
+    perspectiva_corrigida: bool = False
 
 
 def _normalizar_texto_para_busca(texto: str) -> str:
@@ -195,6 +199,13 @@ def detectar_conteudo_assistente(texto: str) -> dict[str, object]:
                 scores[nome_disciplina] = 1
 
     disciplinas_ordenadas = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    # Classificador treinado (backend/classificador.py): quando confiante, a matéria dele vem primeiro.
+    previsao = classificar_materia(texto)
+    metodo_materia, confianca_materia = "regras", None
+    if previsao and previsao[0] in DISCIPLINAS:
+        materia_prevista, confianca_materia = previsao
+        disciplinas_ordenadas = [(materia_prevista, float("inf"))] + [d for d in disciplinas_ordenadas if d[0] != materia_prevista]
+        metodo_materia = "modelo"
     disciplinas = [DISCIPLINAS[nome]["titulo"] for nome, _ in disciplinas_ordenadas[:2]]
 
     livro_melhor = None
@@ -235,18 +246,22 @@ def detectar_conteudo_assistente(texto: str) -> dict[str, object]:
 
     autor = _extrair_autor(texto)
     resumo_estudo = gerar_resumo_estudo(texto, livro_melhor)
-    exercicios_revisao = gerar_exercicios_revisao(texto, livro_melhor)
+    # Lacunas tiradas do próprio texto (backend/exercicios.py) + pergunta discursiva da matéria.
+    exercicios_revisao, gabarito_exercicios = montar_exercicios(texto, livro_melhor, gerar_exercicios_revisao(texto, livro_melhor))
 
     return {
         "livro": livro_melhor["titulo"],
         "descricao": livro_melhor["descricao"],
         "figuras": figuras[:4],
         "disciplinas": disciplinas or ["Material didático genérico"],
+        "metodo_materia": metodo_materia,
+        "confianca_materia": round(confianca_materia, 3) if confianca_materia is not None else None,
         "capitulo": livro_melhor.get("capitulo", "Tema principal do conteúdo"),
         "conceito": livro_melhor.get("conceito", "Esse material contribui para o entendimento do tema central."),
         "autor": autor,
         "resumo_estudo": resumo_estudo,
         "exercicios_revisao": exercicios_revisao,
+        "gabarito_exercicios": gabarito_exercicios,
     }
 
 
@@ -478,7 +493,9 @@ def _corrigir_inclinacao(binaria: np.ndarray) -> tuple[np.ndarray, float]:
 
 def processar(imagem: np.ndarray) -> ResultadoProcessamento:
     # Parâmetros escolhidos com o conjunto de treino do FUNSD; ver docs/AVALIACAO.md.
-    tons_cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
+    # Foto tirada de lado: recorta e endireita a folha antes de tudo (backend/perspectiva.py).
+    folha, perspectiva_corrigida = corrigir_perspectiva(imagem)
+    tons_cinza = cv2.cvtColor(folha, cv2.COLOR_BGR2GRAY)
     ampliada = _ampliar_para_ocr(tons_cinza)
     iluminacao_uniforme = _normalizar_iluminacao(ampliada)
     sem_ruido = cv2.medianBlur(iluminacao_uniforme, 3)
@@ -500,6 +517,7 @@ def processar(imagem: np.ndarray) -> ResultadoProcessamento:
     return ResultadoProcessamento(
         original=imagem, tons_cinza=tons_cinza, tratada=alinhada, texto=texto,
         inclinacao_corrigida_graus=round(inclinacao, 2),
+        perspectiva_corrigida=perspectiva_corrigida,
         ocr_disponivel=disponivel, aviso=aviso,
         assistente_estudos=assistente_estudos,
         descricao_processo=descricao_processo,
