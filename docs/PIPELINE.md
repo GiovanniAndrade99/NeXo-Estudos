@@ -70,7 +70,16 @@ O `pytesseract` chama o executável Tesseract instalado no sistema. Por padrão,
 
 ### 10. Análise do texto para sugestões de estudo
 
-O texto do OCR é normalizado para comparação (minúsculas e remoção de acentos) e confrontado com conjuntos de palavras-chave associados a disciplinas. As disciplinas com mais correspondências são priorizadas. A partir da categoria selecionada, o código monta uma descrição, um resumo de estudo e exercícios de revisão predefinidos. Algumas linhas extraídas também podem ser aproveitadas como tópicos/figuras, e há uma tentativa simples de identificar o autor.
+O texto do OCR é normalizado para comparação (minúsculas e remoção de acentos) e confrontado com conjuntos de palavras-chave associados a disciplinas. As disciplinas com mais correspondências são priorizadas. A partir da categoria selecionada, o código associa uma descrição e exercícios de revisão predefinidos para o assunto.
+
+O **resumo de estudo** é gerado a partir do próprio texto da página, por **sumarização extrativa** (`backend/resumo.py`), uma técnica clássica de Processamento de Linguagem Natural baseada na frequência de termos (Luhn, 1958, a mesma ideia do TF-IDF):
+
+1. **Limpeza:** linhas de autor, números de página e ruído do OCR (linhas com poucas letras) são descartados.
+2. **Reconstrução das frases:** o OCR devolve o texto quebrado por linha da página; as linhas são juntadas até um ponto final, a hifenização de fim de linha é desfeita e títulos curtos ficam de fora.
+3. **Pontuação:** cada palavra relevante (excluindo palavras vazias como "de", "que", "o") vale a sua frequência no texto, e os termos da disciplina identificada recebem peso extra. A nota da frase é a média desses pesos, com penalidade para frases muito curtas ou muito longas.
+4. **Seleção:** as frases com maior nota que cabem no limite (até 3 frases, 280 caracteres) são apresentadas na ordem original do texto.
+
+Assim o resumo mostra frases inteiras e representativas do conteúdo, em vez de trechos cortados. Quando o OCR não fornece frases completas, o assistente usa o conceito associado à disciplina. Algumas linhas extraídas também podem ser aproveitadas como tópicos/figuras, e há uma tentativa simples de identificar o autor.
 
 Essa etapa é baseada em regras determinísticas: não há treinamento de classificador nem chamada a um modelo generativo. Por isso, erros do OCR podem afetar as sugestões, e a saída deve ser entendida como apoio, não como classificação garantida.
 
@@ -87,7 +96,7 @@ A integração com a disciplina é o **Assistente de Estudos**: o resultado do p
 3. **Extração de conteúdo:** o Tesseract OCR reconhece o texto em português e inglês.
 4. **Preparação para o assistente:** o backend limpa e normaliza o texto para comparar termos sem diferença de maiúsculas ou acentos.
 5. **Análise e identificação do tema:** o Assistente de Estudos compara o texto com palavras-chave de disciplinas e ordena os temas por correspondências encontradas.
-6. **Organização para aprendizagem:** com base no tema predominante, o assistente associa uma descrição e um conceito e seleciona um resumo e exercícios de revisão definidos para aquele assunto. Também tenta extrair linhas que possam servir como tópicos e identificar o autor.
+6. **Organização para aprendizagem:** com base no tema predominante, o assistente associa uma descrição, um conceito e exercícios de revisão definidos para aquele assunto, e gera o resumo escolhendo, por sumarização extrativa, as frases mais representativas do próprio texto reconhecido. Também tenta extrair linhas que possam servir como tópicos e identificar o autor.
 7. **Apresentação:** o backend envia os resultados à interface, que mostra o material reconhecido junto às sugestões do Assistente de Estudos.
 
 Na implementação atual, a análise do Assistente de Estudos usa regras e conteúdo predefinido no código; não há treinamento de modelo próprio nem chamada a um serviço generativo. Para o relatório da disciplina, descreva essa implementação como um assistente de apoio aos estudos baseado em OCR e regras de identificação temática. Essa descrição registra o que o projeto efetivamente faz e permite explicar a integração sem atribuir ao sistema um modelo que não está implementado.

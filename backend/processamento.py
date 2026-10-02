@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytesseract
+
+from .resumo import resumir
 
 IDIOMAS_OCR = os.getenv("OCR_LANGUAGES", "por+eng")
 LIMITE_LADO = 4000
@@ -22,7 +25,7 @@ DISCIPLINAS = {
     },
     "banco_de_dados": {
         "titulo": "Banco de Dados",
-        "palavras_chave": ("sql", "database", "dados", "consulta", "join", "normalizacao", "modelo", "relacional", "transacao"),
+        "palavras_chave": ("sql", "database", "consulta sql", "join", "normalizacao", "banco de dados", "relacional", "transacao", "chave estrangeira"),
         "descricao": "A imagem parece abordar modelagem de dados, consultas e organização de informações em sistemas de banco de dados.",
         "capitulo": "Modelagem e consultas em banco de dados",
         "conceito": "Estruturar dados de forma consistente e recuperar informações com consultas eficientes.",
@@ -36,7 +39,7 @@ DISCIPLINAS = {
     },
     "ia": {
         "titulo": "Inteligência Artificial",
-        "palavras_chave": ("ia", "inteligencia", "artificial", "machine", "learning", "rede", "neuronal", "classificacao", "treinamento", "modelo"),
+        "palavras_chave": ("inteligencia artificial", "machine learning", "deep learning", "rede neural", "redes neurais", "aprendizado supervisionado", "aprendizado de maquina", "ia generativa"),
         "descricao": "A imagem parece contextualizar inteligência artificial, treinamento de modelos e aprendizado de máquina.",
         "capitulo": "Modelos e treinamento de aprendizado de máquina",
         "conceito": "Observar como o modelo aprende padrões a partir de dados e como isso se aplica a classificação e previsão.",
@@ -47,6 +50,55 @@ DISCIPLINAS = {
         "descricao": "A imagem parece representar material didático de matemática, com foco em álgebra linear, matrizes, vetores e resolução de sistemas.",
         "capitulo": "Matrizes, vetores e sistemas lineares",
         "conceito": "Relacionar estruturas matemáticas e operações lineares para resolver problemas e representar dados.",
+    },
+    "programacao": {
+        "titulo": "Programação e Desenvolvimento de Software",
+        "palavras_chave": ("programacao", "linguagem de programacao", "codigo fonte", "python", "javascript", "java", "variavel", "funcao recursiva", "orientacao a objetos", "heranca", "encapsulamento", "compilador"),
+        "descricao": "O conteúdo aborda programação, linguagens e construção de soluções por meio de código.",
+        "capitulo": "Fundamentos de programação e desenvolvimento de software",
+        "conceito": "Relacionar instruções, dados e estruturas de controle para construir programas que resolvem problemas.",
+    },
+    "engenharia_software": {
+        "titulo": "Engenharia de Software",
+        "palavras_chave": ("engenharia de software", "requisito funcional", "requisito nao funcional", "caso de uso", "historia de usuario", "ciclo de vida do software", "teste unitario", "integracao continua", "arquitetura de software", "metodologia agil"),
+        "descricao": "O material trata de requisitos, arquitetura, testes ou qualidade no desenvolvimento de software.",
+        "capitulo": "Requisitos, projeto e qualidade de software",
+        "conceito": "Compreender como requisitos, projeto, implementação e testes se conectam no ciclo de vida de um sistema.",
+    },
+    "seguranca": {
+        "titulo": "Segurança da Informação",
+        "palavras_chave": ("seguranca da informacao", "criptografia", "criptografico", "autenticacao multifator", "controle de acesso", "vulnerabilidade", "ransomware", "phishing", "firewall", "ataque cibernetico"),
+        "descricao": "A página aborda proteção de sistemas e dados, ameaças digitais ou mecanismos de segurança.",
+        "capitulo": "Proteção de sistemas, dados e redes",
+        "conceito": "Identificar ameaças e relacionar controles de segurança à confidencialidade, integridade e disponibilidade.",
+    },
+    "sistemas_operacionais": {
+        "titulo": "Sistemas Operacionais",
+        "palavras_chave": ("sistemas operacionais", "kernel", "gerenciamento de memoria", "sistema de arquivos", "escalonamento de processos", "memoria virtual", "chamada de sistema", "sistema operacional"),
+        "descricao": "O conteúdo aborda o funcionamento do sistema operacional, processos, memória ou arquivos.",
+        "capitulo": "Processos, memória e sistemas de arquivos",
+        "conceito": "Entender como o sistema operacional administra recursos e oferece serviços aos programas.",
+    },
+    "geografia": {
+        "titulo": "Geografia",
+        "palavras_chave": ("geografia", "cartografia", "latitude", "longitude", "coordenadas geograficas", "relevo", "bioma", "clima", "urbanizacao", "globalizacao", "territorio", "placas tectonicas"),
+        "descricao": "A página aborda geografia, espaço geográfico, cartografia, ambiente, população ou relações territoriais.",
+        "capitulo": "Espaço geográfico e relações socioambientais",
+        "conceito": "Analisar como fenômenos naturais e ações humanas organizam e transformam o espaço geográfico.",
+    },
+    "portugues": {
+        "titulo": "Língua Portuguesa",
+        "palavras_chave": ("lingua portuguesa", "gramatica", "ortografia", "sintaxe", "semantica", "classe gramatical", "interpretacao de texto", "figura de linguagem", "redacao", "analise sintatica"),
+        "descricao": "O material apresenta conteúdos de língua portuguesa, leitura, gramática ou produção textual.",
+        "capitulo": "Leitura, gramática e produção textual",
+        "conceito": "Relacionar recursos da língua à construção de sentido e à comunicação clara em diferentes textos.",
+    },
+    "literatura": {
+        "titulo": "Literatura",
+        "palavras_chave": ("literatura", "romantismo", "realismo", "modernismo", "narrador", "eu lirico", "genero literario", "escola literaria", "poema", "poesia", "cronica"),
+        "descricao": "O conteúdo trata de textos literários, gêneros, autores ou movimentos literários.",
+        "capitulo": "Gêneros e movimentos literários",
+        "conceito": "Interpretar escolhas narrativas e recursos de linguagem considerando o contexto e o gênero da obra.",
     },
     "biologia": {
         "titulo": "Biologia Celular e Molecular",
@@ -100,10 +152,14 @@ def _normalizar_texto_para_busca(texto: str) -> str:
 
 def detectar_conteudo_assistente(texto: str) -> dict[str, object]:
     linhas = [linha.strip() for linha in (texto or "").splitlines() if linha.strip()]
-    texto_normalizado = _normalizar_texto_para_busca(" ".join(linhas))
+    texto_normalizado = re.sub(r"[^a-z0-9]+", " ", _normalizar_texto_para_busca(" ".join(linhas))).strip()
 
     if not linhas:
-        disciplina_padrao = DISCIPLINAS["algoritmos"]
+        disciplina_padrao = {
+            "titulo": "Material didático genérico",
+            "capitulo": "Tema não identificado",
+            "conceito": "O texto reconhecido não foi suficiente para identificar o assunto com confiança.",
+        }
         autor = _extrair_autor(texto)
         return {
             "livro": "Material didático genérico",
@@ -119,20 +175,23 @@ def detectar_conteudo_assistente(texto: str) -> dict[str, object]:
 
     scores = {}
     for nome_disciplina, dados in DISCIPLINAS.items():
-        score = sum(1 for termo in dados["palavras_chave"] if termo in texto_normalizado)
+        score = sum(
+            1 for termo in dados["palavras_chave"]
+            if f" {termo} " in f" {texto_normalizado} "
+        )
         if score > 0:
             scores[nome_disciplina] = score
 
     if not scores:
         palavras_chave_gerais = {
-            "matematica": ("algebra", "matriz", "geometria", "equacao", "sistema", "funcao", "integral", "derivada", "calculo"),
-            "biologia": ("biologia", "celula", "genetica", "dna", "organelo", "tecido", "membrana", "genoma"),
+            "matematica": ("algebra", "matriz", "geometria", "equacao", "integral", "derivada", "calculo"),
+            "biologia": ("biologia", "celula", "genetica", "dna", "organelo", "membrana", "genoma"),
             "quimica": ("quimica", "atomo", "molecula", "reacao", "elemento", "ligacao", "solucao", "composto"),
-            "historia": ("historia", "imperio", "republica", "colonial", "revolucao", "brasil", "sociedade"),
-            "fisica": ("fisica", "forca", "energia", "movimento", "velocidade", "eletricidade", "onda", "campo"),
+            "historia": ("historia", "imperio", "republica", "colonial", "revolucao", "brasil"),
+            "fisica": ("fisica", "forca", "energia", "movimento", "velocidade", "eletricidade", "onda"),
         }
         for nome_disciplina, termos in palavras_chave_gerais.items():
-            if any(termo in texto_normalizado for termo in termos):
+            if any(f" {termo} " in f" {texto_normalizado} " for termo in termos):
                 scores[nome_disciplina] = 1
 
     disciplinas_ordenadas = sorted(scores.items(), key=lambda item: item[1], reverse=True)
@@ -225,41 +284,66 @@ def gerar_resumo_estudo(texto: str, disciplina: dict[str, str]) -> str:
     conceito = disciplina.get("conceito", "Esse material é útil para revisão e consolidação de ideias principais.")
     capitulo = disciplina.get("capitulo", "Tema principal do conteúdo")
     titulo = disciplina.get("titulo", "Material de estudo")
-    resumo = f"{titulo} — {capitulo}."
-    if conceito:
-        resumo = f"{resumo} {conceito[:110].rstrip()}."
-    return resumo
+    # Resumo extrativo (backend/resumo.py): as frases mais representativas do texto, inteiras e na ordem original.
+    frases = resumir(texto, tuple(disciplina.get("palavras_chave", ())))
+    if frases:
+        return f"{titulo}. " + " ".join(frases)
+    cabecalho = f"{titulo} — {capitulo}."
+    return f"{cabecalho} {conceito[:110].rstrip()}." if conceito else cabecalho
 
 
 def gerar_exercicios_revisao(texto: str, disciplina: dict[str, str]) -> list[str]:
-    texto_normalizado = _normalizar_texto_para_busca(texto)
-    titulo = disciplina.get("titulo", "material de estudo").lower()
+    titulo = _normalizar_texto_para_busca(disciplina.get("titulo", "material de estudo"))
 
-    if "algoritmo" in titulo or any(token in texto_normalizado for token in ("algoritmo", "grafo", "busca", "ordenacao", "complexidade")):
+    if "algoritmo" in titulo:
         return [
             "Explique a diferença entre busca em largura e busca em profundidade com um exemplo simples.",
             "Descreva como um grafo pode representar um problema prático e indique o caminho mínimo entre dois nós.",
             "Analise a complexidade de tempo de um algoritmo e compare com uma solução alternativa.",
         ]
-    if "banco" in titulo or any(token in texto_normalizado for token in ("sql", "dados", "consulta", "join", "normalizacao")):
+    if "banco" in titulo:
         return [
             "Escreva uma consulta SQL que recupere dados de duas tabelas relacionadas por chave estrangeira.",
             "Explique por que a normalização melhora o armazenamento e evita redundância de informações.",
             "Descreva a diferença entre SELECT, JOIN e GROUP BY em um contexto prático.",
         ]
-    if "rede" in titulo or any(token in texto_normalizado for token in ("tcp", "ip", "dns", "protocolo", "router", "internet")):
+    if "rede" in titulo:
         return [
             "Explique a função dos protocolos TCP e IP na comunicação entre computadores.",
             "Descreva como o DNS resolve nomes de domínio e por que isso é fundamental para a internet.",
             "Compare as camadas da arquitetura de redes e seu papel na transmissão de dados.",
         ]
-    if "intelig" in titulo or any(token in texto_normalizado for token in ("machine", "learning", "modelo", "treinamento", "classificacao", "neuronal")):
+    if "intelig" in titulo:
         return [
             "Defina o que é treinamento de modelo e explique a diferença entre dados de treino e teste.",
             "Descreva como a classificação funciona em um problema de aprendizado supervisionado.",
             "Explique por que a qualidade dos dados impacta diretamente o desempenho de um modelo.",
         ]
-    if "matemat" in titulo or any(token in texto_normalizado for token in ("matriz", "vetor", "equacao", "sistema", "geometria")):
+    if "programacao" in titulo:
+        return [
+            "Explique como variáveis, condições e repetições ajudam a construir um programa.",
+            "Escreva um exemplo curto de código que resolva um problema descrito no material.",
+            "Descreva como funções ou classes ajudam a organizar e reutilizar código.",
+        ]
+    if "engenharia de software" in titulo:
+        return [
+            "Diferencie um requisito funcional de um requisito não funcional usando exemplos.",
+            "Descreva como testes unitários ajudam a verificar o comportamento de um componente.",
+            "Explique como uma história de usuário pode orientar a implementação de uma funcionalidade.",
+        ]
+    if "seguranca" in titulo:
+        return [
+            "Explique como a criptografia protege a confidencialidade de uma informação.",
+            "Identifique um risco de segurança apresentado no material e proponha uma mitigação.",
+            "Diferencie autenticação de controle de acesso em um sistema.",
+        ]
+    if "sistemas operacionais" in titulo:
+        return [
+            "Explique como o sistema operacional distribui recursos entre processos.",
+            "Descreva a função da memória virtual ou do sistema de arquivos.",
+            "Compare processo e thread com base no conteúdo estudado.",
+        ]
+    if "matemat" in titulo:
         return [
             "Resolva um sistema linear simples e identifique o significado geométrico da solução.",
             "Explique como uma matriz pode representar transformações e dados em problemas práticos.",

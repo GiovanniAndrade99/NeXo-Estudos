@@ -85,6 +85,50 @@ class TestAssistenteEstudos(unittest.TestCase):
         self.assertLess(len(resultado["resumo_estudo"]), 220)
         self.assertNotIn("professor", normalizar_texto(resultado["resumo_estudo"]))
 
+    def test_identifica_programacao_e_resume_trecho_do_material(self):
+        texto = '''
+        Programação Orientada a Objetos
+        Em Python, uma classe define atributos e métodos para criar objetos.
+        O encapsulamento protege o estado interno e organiza as responsabilidades.
+        '''
+
+        resultado = detectar_conteudo_assistente(texto)
+
+        self.assertIn("programacao", normalizar_texto(resultado["livro"]))
+        self.assertIn("classe define atributos", normalizar_texto(resultado["resumo_estudo"]))
+        self.assertIn("encapsulamento protege", normalizar_texto(resultado["resumo_estudo"]))
+        self.assertIn("classes", normalizar_texto(resultado["exercicios_revisao"][2]))
+
+    def test_nao_confunde_palavras_genericas_com_ia_ou_banco_de_dados(self):
+        texto = '''
+        O modelo apresenta uma função para organizar os dados coletados na atividade.
+        A turma analisa os resultados e registra suas observações.
+        '''
+
+        resultado = detectar_conteudo_assistente(texto)
+
+        self.assertNotIn("banco de dados", normalizar_texto(resultado["livro"]))
+        self.assertNotIn("inteligencia artificial", normalizar_texto(resultado["livro"]))
+        self.assertNotIn("treino", normalizar_texto(" ".join(resultado["exercicios_revisao"])))
+
+    def test_identifica_geografia_por_termos_da_disciplina(self):
+        texto = '''
+        Geografia
+        A latitude e a longitude definem coordenadas geográficas.
+        A cartografia representa o espaço por meio de mapas.
+        '''
+
+        resultado = detectar_conteudo_assistente(texto)
+
+        self.assertEqual(resultado["livro"], "Geografia")
+        self.assertIn("geografia", normalizar_texto(resultado["descricao"]))
+
+    def test_ocr_vazio_nao_assume_algoritmos(self):
+        resultado = detectar_conteudo_assistente("")
+
+        self.assertEqual(resultado["livro"], "Material didático genérico")
+        self.assertNotIn("algoritmo", normalizar_texto(resultado["resumo_estudo"]))
+
 
 if __name__ == "__main__":
     unittest.main()
