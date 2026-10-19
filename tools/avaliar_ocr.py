@@ -77,8 +77,12 @@ def comparar(reconhecidas: list[str], esperadas: list[str]) -> tuple[float, floa
     return precisao, revocacao, f1
 
 
-def degradar(imagem: np.ndarray, semente: int) -> np.ndarray:
-    """Simula uma foto de celular: tom amarelado, sombra num canto, ruído de sensor e inclinação."""
+def degradar(imagem: np.ndarray, semente: int, com_transformacao: bool = False):
+    """Simula uma foto de celular: tom amarelado, sombra num canto, ruído de sensor e inclinação.
+
+    Com com_transformacao=True devolve também a matriz de rotação aplicada (para levar o gabarito
+    à mesma geometria da foto); a sequência aleatória é a mesma nos dois modos.
+    """
     rng = np.random.default_rng(semente)
     altura, largura = imagem.shape[:2]
     foto = imagem.astype(np.float32) * np.array([0.80, 0.93, 1.0], np.float32)  # BGR: papel amarelado
@@ -90,11 +94,15 @@ def degradar(imagem: np.ndarray, semente: int) -> np.ndarray:
     foto = np.clip(foto, 0, 255).astype(np.uint8)
     angulo = float(rng.uniform(3, 6) * rng.choice([-1, 1]))
     matriz = cv2.getRotationMatrix2D((largura / 2, altura / 2), angulo, 1.0)
-    return cv2.warpAffine(foto, matriz, (largura, altura), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    foto = cv2.warpAffine(foto, matriz, (largura, altura), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return (foto, matriz) if com_transformacao else foto
 
 
-def fotografar_em_perspectiva(imagem: np.ndarray, semente: int) -> np.ndarray:
-    """Simula a folha fotografada de lado sobre uma mesa escura: perspectiva aleatória, fundo com ruído."""
+def fotografar_em_perspectiva(imagem: np.ndarray, semente: int, com_transformacao: bool = False):
+    """Simula a folha fotografada de lado sobre uma mesa escura: perspectiva aleatória, fundo com ruído.
+
+    Com com_transformacao=True devolve também a homografia aplicada (posição real da folha).
+    """
     rng = np.random.default_rng(semente)
     altura, largura = imagem.shape[:2]
     alto, largo = int(altura * 1.5), int(largura * 1.6)
@@ -106,7 +114,8 @@ def fotografar_em_perspectiva(imagem: np.ndarray, semente: int) -> np.ndarray:
     folha = cv2.warpPerspective(imagem, matriz, (largo, alto), flags=cv2.INTER_LINEAR)
     dentro = cv2.warpPerspective(np.ones((altura, largura), np.uint8), matriz, (largo, alto)) > 0
     fundo[dentro] = folha[dentro]
-    return np.clip(fundo, 0, 255).astype(np.uint8)
+    foto = np.clip(fundo, 0, 255).astype(np.uint8)
+    return (foto, matriz) if com_transformacao else foto
 
 
 def ocr_direto(imagem: np.ndarray) -> str:

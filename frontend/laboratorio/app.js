@@ -7,6 +7,7 @@ const selectedCount = document.querySelector("#selected-count");
 const acceptedTypes = ["image/png", "image/jpeg", "image/bmp", "image/tiff", "image/webp", "application/pdf"];
 let processedAssets = [];
 let selectedFiles = [];
+let recognizedTextForCopy = "";
 
 const navItems = document.querySelectorAll(".nav-item");
 const screens = document.querySelectorAll(".screen");
@@ -386,6 +387,27 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
   })[character]);
+}
+
+function renderRecognizedText(text, words) {
+  const output = document.querySelector("#recognized-text");
+  recognizedTextForCopy = text || "";
+  if (!words.length || !text) {
+    output.textContent = text || "";
+    return;
+  }
+  const lines = new Map();
+  for (const word of words) {
+    const key = word.linha || "0";
+    if (!lines.has(key)) lines.set(key, []);
+    lines.get(key).push(word);
+  }
+  output.innerHTML = Array.from(lines.values()).map((line) => line.map((word) => {
+    const confidence = word.confianca == null ? Number.NaN : Number(word.confianca);
+    const level = !Number.isFinite(confidence) ? "unknown" : confidence < 60 ? "low" : confidence < 85 ? "medium" : "high";
+    const label = Number.isFinite(confidence) ? `Confiança Tesseract: ${confidence.toFixed(1)} de 100` : "Confiança indisponível";
+    return `<span class="ocr-word confidence-${level}" title="${escapeHtml(label)}">${escapeHtml(word.texto)}</span>`;
+  }).join(" ")).join("\n");
 }
 
 function historyItemMarkup(item, index) {
@@ -893,7 +915,7 @@ processButton.addEventListener("click", async () => {
     saveImageButton.disabled = false;
     applyManualAdjustments();
     const descricaoProcesso = payload.descricao_processo || "A imagem foi processada em tons de cinza, com contraste ajustado, ruido reduzido e alinhamento aplicado antes da extracao do conteudo.";
-    document.querySelector("#recognized-text").textContent = payload.texto || descricaoProcesso;
+    renderRecognizedText(payload.texto || descricaoProcesso, payload.palavras_ocr || []);
     document.querySelector("#copy-button").disabled = false;
     const warning = document.querySelector("#ocr-warning");
     warning.hidden = !payload.aviso;
@@ -919,7 +941,7 @@ processButton.addEventListener("click", async () => {
 
 document.querySelector("#copy-button").addEventListener("click", async (event) => {
   try {
-    await navigator.clipboard.writeText(document.querySelector("#recognized-text").textContent);
+    await navigator.clipboard.writeText(recognizedTextForCopy);
     event.currentTarget.innerHTML = "Copiado <span>✓</span>";
     setTimeout(() => { event.currentTarget.innerHTML = "Copiar texto <span>▢</span>"; }, 1400);
   } catch {

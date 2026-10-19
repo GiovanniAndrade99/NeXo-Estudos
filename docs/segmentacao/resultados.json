@@ -1,0 +1,144 @@
+{
+  "tinta_papel": {
+    "foto simulada": {
+      "Otsu direto (sem pré-processamento)": {
+        "precisao": 0.2997773240637521,
+        "revocacao": 0.9805617362299358,
+        "f1": 0.41272322040124776,
+        "iou": 0.29219386779223455,
+        "palavras_bem_segmentadas": 0.5905593200872861
+      },
+      "Pipeline original (CLAHE + limiar adaptativo)": {
+        "precisao": 0.5844618270077718,
+        "revocacao": 0.9409988079041702,
+        "f1": 0.7186186387756525,
+        "iou": 0.5630767442305852,
+        "palavras_bem_segmentadas": 0.28402434822556566
+      },
+      "Homomórfico (FFT) + mediana + Otsu": {
+        "precisao": 0.8122470333561855,
+        "revocacao": 0.8471662852743147,
+        "f1": 0.807193651372279,
+        "iou": 0.6972020344516265,
+        "palavras_bem_segmentadas": 0.8488572413001033
+      },
+      "Pipeline atual (fundo + mediana + Otsu)": {
+        "precisao": 0.855816220956514,
+        "revocacao": 0.8770838320848691,
+        "f1": 0.8656977386442384,
+        "iou": 0.7637720591983388,
+        "palavras_bem_segmentadas": 0.8990467439990812
+      },
+      "Pipeline atual, janela do fundo 15": {
+        "precisao": 0.8521322975656628,
+        "revocacao": 0.8827664272527447,
+        "f1": 0.8664662796184538,
+        "iou": 0.7650149884719935,
+        "palavras_bem_segmentadas": 0.9003100953256001
+      },
+      "Pipeline atual, janela do fundo 61": {
+        "precisao": 0.8604073098148575,
+        "revocacao": 0.874089793840508,
+        "f1": 0.8667377980224288,
+        "iou": 0.7653304718896393,
+        "palavras_bem_segmentadas": 0.8972091420695991
+      }
+    },
+    "scan original": {
+      "Pipeline original (CLAHE + limiar adaptativo)": {
+        "precisao": 0.7411472797674403,
+        "revocacao": 0.9224449242809724,
+        "f1": 0.8211060925216952,
+        "iou": 0.698353714916732,
+        "palavras_bem_segmentadas": 0.5314115079820834
+      },
+      "Homomórfico (FFT) + mediana + Otsu": {
+        "precisao": 0.9415574536154864,
+        "revocacao": 0.8657706022602305,
+        "f1": 0.8843501340641674,
+        "iou": 0.813163565936715,
+        "palavras_bem_segmentadas": 0.9225910187205697
+      },
+      "Pipeline atual (fundo + mediana + Otsu)": {
+        "precisao": 0.9627373646417962,
+        "revocacao": 0.9134766065608211,
+        "f1": 0.9372030113619669,
+        "iou": 0.8820504226775634,
+        "palavras_bem_segmentadas": 0.9939129436085908
+      },
+      "Pipeline atual, janela do fundo 15": {
+        "precisao": 0.9633125764163126,
+        "revocacao": 0.9124071322600686,
+        "f1": 0.9368702129423793,
+        "iou": 0.8815181756366922,
+        "palavras_bem_segmentadas": 0.9935683932468129
+      },
+      "Pipeline atual, janela do fundo 61": {
+        "precisao": 0.9615607479729225,
+        "revocacao": 0.9152658359807078,
+        "f1": 0.9376337174566044,
+        "iou": 0.8827533587880027,
+        "palavras_bem_segmentadas": 0.994142643849776
+      }
+    }
+  },
+  "folha": {
+    "limiar_do_app": 25,
+    "por_limiar": {
+      "10": {
+        "imagens_sem_folha": 100,
+        "falsos_alarmes": 0,
+        "mesa escura uniforme": {
+          "fotos": 50,
+          "detectadas": 50,
+          "iou_medio": 0.9947108141018747,
+          "fracao_iou_acima_de_0_95": 1.0,
+          "erro_medio_cantos_percentual_da_diagonal": 0.14236167748458683
+        },
+        "mesa clara com veios e luz desigual": {
+          "fotos": 50,
+          "detectadas": 49,
+          "iou_medio": 0.9739180572509593,
+          "fracao_iou_acima_de_0_95": 0.98,
+          "erro_medio_cantos_percentual_da_diagonal": 0.16562250604358864
+        }
+      },
+      "25": {
+        "imagens_sem_folha": 100,
+        "falsos_alarmes": 0,
+        "mesa escura uniforme": {
+          "fotos": 50,
+          "detectadas": 50,
+          "iou_medio": 0.9947108141018747,
+          "fracao_iou_acima_de_0_95": 1.0,
+          "erro_medio_cantos_percentual_da_diagonal": 0.14236167748458683
+        },
+        "mesa clara com veios e luz desigual": {
+          "fotos": 50,
+          "detectadas": 49,
+          "iou_medio": 0.9739180572509593,
+          "fracao_iou_acima_de_0_95": 0.98,
+          "erro_medio_cantos_percentual_da_diagonal": 0.16562250604358864
+        }
+      },
+      "40": {
+        "imagens_sem_folha": 100,
+        "falsos_alarmes": 0,
+        "mesa escura uniforme": {
+          "fotos": 50,
+          "detectadas": 50,
+          "iou_medio": 0.9947108141018747,
+          "fracao_iou_acima_de_0_95": 1.0,
+          "erro_medio_cantos_percentual_da_diagonal": 0.14236167748458683
+        },
+        "mesa clara com veios e luz desigual": {
+          "fotos": 50,
+          "detectadas": 43,
+          "iou_medio": 0.8547231384883688,
+          "fracao_iou_acima_de_0_95": 0.86,
+          "erro_medio_cantos_percentual_da_diagonal": 0.16456392084703195
+        }
+      }
+    }
+  }
+}

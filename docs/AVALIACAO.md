@@ -55,16 +55,16 @@ Médias por imagem:
 | Condição | Método | Precisão | Revocação | F1 |
 |---|---|---|---|---|
 | Scan original | Sem pré-processamento | 62,9% | 60,4% | 61,3% |
-| Scan original | **Pipeline do projeto** | **70,7%** | **74,1%** | **72,1%** |
+| Scan original | **Pipeline do projeto** | **70,4%** | **73,9%** | **71,9%** |
 | Foto simulada | Sem pré-processamento | 43,6% | 27,9% | 32,4% |
-| Foto simulada | **Pipeline do projeto** | **66,5%** | **69,4%** | **67,6%** |
+| Foto simulada | **Pipeline do projeto** | **67,0%** | **69,4%** | **67,8%** |
 | Foto em perspectiva | Sem pré-processamento | 49,7% | 44,1% | 46,0% |
-| Foto em perspectiva | **Pipeline do projeto** | **62,4%** | **65,0%** | **63,3%** |
+| Foto em perspectiva | **Pipeline do projeto** | **62,7%** | **65,4%** | **63,6%** |
 
-- **Scan original:** o pipeline aumentou o F1 em 10,8 pontos percentuais. Melhorou 45 das 50 imagens (mediana do ganho: 6,4 p.p.).
-- **Foto simulada:** o pipeline aumentou o F1 em 35,2 pontos percentuais. Melhorou 49 das 50 imagens (mediana do ganho: 35,2 p.p.).
-- **Foto em perspectiva:** o pipeline aumentou o F1 em 17,3 pontos percentuais. Para isolar a etapa de correção de perspectiva, o pipeline foi rodado também **sem** ela nessas fotos: o F1 cai para 39,8% (abaixo até do OCR direto, porque a mesa em volta atrapalha a normalização de iluminação e a binarização). A correção de perspectiva sozinha responde por **+23,5 pontos**. Nos scans e nas fotos simuladas ela não é acionada e os resultados ficaram idênticos aos anteriores.
-- **Correção de inclinação:** nas fotos simuladas (inclinadas entre 3° e 6°), o erro médio do ângulo após a correção foi de 0,30°; 40 das 50 imagens ficaram com erro de até 0,5°.
+- **Scan original:** o pipeline aumentou o F1 em 10,6 pontos percentuais. Melhorou 43 das 50 imagens (mediana do ganho: 6,7 p.p.).
+- **Foto simulada:** o pipeline aumentou o F1 em 35,4 pontos percentuais. Melhorou 49 das 50 imagens (mediana do ganho: 35,0 p.p.).
+- **Foto em perspectiva:** o pipeline aumentou o F1 em 17,6 pontos percentuais. Para isolar a etapa de correção de perspectiva, o pipeline foi rodado também **sem** ela nessas fotos: o F1 cai para 41,0% (abaixo até do OCR direto, porque a mesa em volta atrapalha a normalização de iluminação e a binarização). A correção de perspectiva sozinha responde por **+22,6 pontos**. Nos scans e nas fotos simuladas ela não é acionada (nenhum falso alarme em 100 imagens; ver [SEGMENTACAO.md](SEGMENTACAO.md)).
+- **Correção de inclinação:** nas fotos simuladas (inclinadas entre 3° e 6°), o erro médio do ângulo medido pela FFT foi de 0,32° (mediana de 0,19°); 49 das 50 imagens ficaram com erro de até 1°. Em páginas giradas de 15° a 40°, além do alcance do método anterior, o F1 do OCR passou de 23,9% para 69,3% ([FFT.md](FFT.md)).
 
 Os resultados de cada imagem estão em [`avaliacao/resultados.csv`](avaliacao/resultados.csv).
 
@@ -94,6 +94,8 @@ Variantes testadas no conjunto de treino (F1 médio em 20 imagens):
 | **Ampliação + iluminação uniforme + mediana + Otsu (adotada)** | **77,1%** | **74,5%** |
 
 Todas as variantes novas usam a correção de inclinação por projeção. A ampliação foi a mudança de maior impacto; a normalização de iluminação foi decisiva nas fotos. O CLAHE foi retirado porque, depois da normalização de iluminação, ele reduzia o F1.
+
+Mais tarde, a medida de inclinação por projeção foi substituída pela medida no espectro de Fourier (FFT), com a mesma precisão, faixa de ±45° em vez de ±15° e menor custo. A tabela de resultados acima já usa a versão com FFT (a anterior tinha F1 de 72,1%, 67,6% e 63,3%: as diferenças, de até 0,3 ponto, vêm de ângulos que mudaram 0,1°). A avaliação dessa troca e a do filtro homomórfico estão em [FFT.md](FFT.md); a avaliação direta das segmentações, com gabarito por pixel, está em [SEGMENTACAO.md](SEGMENTACAO.md).
 
 Entregar ao Tesseract a imagem em cinza normalizada, sem binarizar, teve o maior F1 no treino, porque o próprio Tesseract faz uma binarização interna. Mesmo assim, o projeto mantém a binarização explícita com Otsu: ela é uma etapa central da disciplina, a imagem mostrada na interface passa a ser exatamente a que o OCR recebe, e a diferença nas fotos simuladas foi pequena (1,7 ponto).
 

@@ -905,6 +905,18 @@ button, input { font: inherit; }
   line-height: 1.6;
   min-height: 180px;
 }
+.ocr-word { border-radius: 3px; padding: 0 1px; }
+.confidence-low { background: rgba(255, 154, 107, 0.22); text-decoration: underline wavy #ff9a6b; text-underline-offset: 3px; }
+.confidence-medium { background: rgba(248, 205, 101, 0.16); text-decoration: underline dotted #f8cd65; text-underline-offset: 3px; }
+.confidence-high { background: rgba(92, 207, 170, 0.10); }
+.confidence-unknown { text-decoration: underline dotted #9aa9bd; }
+.ocr-confidence-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 9px; color: #bdcbe0; font-size: 12px; }
+.ocr-confidence-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ocr-confidence-legend small { flex-basis: 100%; color: #95a8c2; line-height: 1.5; }
+.confidence-swatch { display: inline-block; width: 13px; height: 13px; border-radius: 3px; }
+.confidence-swatch.low { background: rgba(255, 154, 107, 0.5); }
+.confidence-swatch.medium { background: rgba(248, 205, 101, 0.5); }
+.confidence-swatch.high { background: rgba(92, 207, 170, 0.45); }
 
 .assistant-card {
   margin-top: 18px;

@@ -48,15 +48,21 @@ def _encontrar_folha(cinza: np.ndarray) -> np.ndarray | None:
     return None
 
 
-def corrigir_perspectiva(imagem_bgr: np.ndarray) -> tuple[np.ndarray, bool]:
-    """Devolve (imagem endireitada, True) quando acha a folha; senão (imagem original, False)."""
+def detectar_folha(imagem_bgr: np.ndarray) -> np.ndarray | None:
+    """Cantos da folha (superior esquerdo, superior direito, inferior direito, inferior esquerdo)
+    nas coordenadas da imagem, ou None quando não há folha a recortar."""
     altura, largura = imagem_bgr.shape[:2]
     escala = min(1.0, LADO_ANALISE / max(altura, largura))
     pequena = cv2.resize(imagem_bgr, None, fx=escala, fy=escala, interpolation=cv2.INTER_AREA) if escala < 1 else imagem_bgr
     cantos = _encontrar_folha(cv2.cvtColor(pequena, cv2.COLOR_BGR2GRAY))
+    return None if cantos is None else cantos / escala
+
+
+def corrigir_perspectiva(imagem_bgr: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Devolve (imagem endireitada, True) quando acha a folha; senão (imagem original, False)."""
+    cantos = detectar_folha(imagem_bgr)
     if cantos is None:
         return imagem_bgr, False
-    cantos /= escala
     tl, tr, br, bl = cantos
     largura_folha = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
     altura_folha = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))

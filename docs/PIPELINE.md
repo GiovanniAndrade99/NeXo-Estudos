@@ -44,7 +44,7 @@ Quando a página é fotografada de lado, a folha aparece como um quadrilátero t
 3. O quadrilátero só é aceito se a área dentro dele for bem mais clara que uma faixa de fundo logo fora. Esse teste evita "corrigir" um scan comum, em que o maior retângulo costuma ser a borda de uma tabela impressa.
 4. Os quatro cantos são ordenados e uma transformação de perspectiva (`getPerspectiveTransform` + `warpPerspective`) leva a folha para um retângulo do tamanho dos seus lados.
 
-Se nenhuma folha for encontrada, a imagem segue sem alteração. A resposta da API informa se a correção foi aplicada (`perspectiva_corrigida`).
+Se nenhuma folha for encontrada, a imagem segue sem alteração. A resposta da API informa se a correção foi aplicada (`perspectiva_corrigida`). Esse recorte é a **segmentação da folha** (região de interesse); sua avaliação com gabarito está em [SEGMENTACAO.md](SEGMENTACAO.md).
 
 ### 5. Conversão para tons de cinza e ampliação
 
@@ -68,17 +68,28 @@ Um filtro mediano de tamanho 3 × 3 reduz pequenos pontos e imperfeições. A in
 
 ### 8. Binarização (método de Otsu)
 
-O método de Otsu escolhe automaticamente o limiar que melhor separa as intensidades da imagem em dois grupos (tinta e papel) e transforma a imagem em preto e branco. Um limiar global funciona bem aqui porque a etapa 5 já deixou a iluminação uniforme. Essa imagem binária serve de entrada para o alinhamento e o OCR.
+O método de Otsu escolhe automaticamente o limiar que melhor separa as intensidades da imagem em dois grupos (tinta e papel) e transforma a imagem em preto e branco. Um limiar global funciona bem aqui porque a etapa 6 já deixou a iluminação uniforme. Essa imagem binária serve de entrada para o alinhamento e o OCR.
 
-### 9. Correção de inclinação
+As etapas 6 a 8 formam a **segmentação tinta × papel** (`segmentar_texto`). Avaliada por pixel contra o gabarito do FUNSD, ela acerta 86,6% (F1) da tinta em fotos simuladas e deixa 9 em cada 10 palavras bem segmentadas; detalhes em [SEGMENTACAO.md](SEGMENTACAO.md).
 
-O sistema mede o ângulo do texto pelo **perfil de projeção horizontal**: para cada ângulo testado (de −15° a 15°, primeiro de 1 em 1 grau e depois de 0,1 em 0,1 grau perto do melhor), a imagem é girada e a tinta de cada linha de pixels é somada. Quando o texto está alinhado, linhas de texto e entrelinhas alternam entre somas altas e baixas, e a variância dessas somas é máxima. Esse critério quase não é afetado por bordas, linhas de formulário ou sujeira.
+### 9. Correção de inclinação (transformada de Fourier)
+
+O ângulo do texto é medido no **domínio da frequência** (`backend/frequencia.py`). Linhas de texto igualmente espaçadas formam um padrão periódico; na **transformada de Fourier 2D** (FFT) da imagem binária, esse padrão vira uma faixa de picos brilhantes que passa pelo centro do espectro de magnitude, **perpendicular às linhas**. Se a página está girada, a faixa gira junto.
+
+1. A imagem binária (tinta = 1) é reduzida para no máximo 1024 pixels, multiplicada por uma janela de Hann (evita a "cruz" falsa criada pelas bordas da imagem) e posta num quadrado, para que um ângulo no espectro seja o mesmo ângulo na página.
+2. A FFT 2D é calculada e centralizada (`fftshift`); usa-se só a **magnitude**, que não muda quando o texto muda de lugar na página (a posição fica na fase).
+3. Para cada ângulo entre −45° e 45°, de 0,1 em 0,1 grau, a magnitude é somada ao longo de uma reta que sai do centro, ignorando as frequências mais baixas (iluminação) e as mais altas (ruído). A reta com mais energia dá a inclinação.
+4. Se o pico não se destaca das outras direções (imagem sem linhas de texto), a imagem não é girada.
 
 Se a inclinação medida for de pelo menos 0,2°, a imagem é rotacionada para alinhar as linhas. A correção estimada, em graus, também é incluída no resultado.
+
+Essa medida substituiu o **perfil de projeção horizontal** (girar a imagem a cada ângulo e procurar a maior variância das somas por linha). A precisão é a mesma, mas na FFT testar um ângulo a mais custa só uma reta no espectro, enquanto a projeção precisa girar a imagem inteira; por isso a faixa passou de ±15° para ±45°. A avaliação está em [FFT.md](FFT.md).
 
 ### 10. Reconhecimento óptico de caracteres (OCR)
 
 O `pytesseract` chama o executável Tesseract instalado no sistema. Por padrão, são usados os idiomas `por+eng` e o modo de segmentação `--psm 6`, apropriado para texto organizado em blocos. O texto reconhecido é devolvido ao sistema. Se o executável ou os idiomas necessários não estiverem disponíveis, a API informa o aviso e o restante do resultado pode continuar sem texto OCR.
+
+Além do texto, a resposta da API agora inclui cada palavra reconhecida, sua caixa delimitadora e a pontuação de confiança informada pelo Tesseract (`image_to_data`). A interface usa faixas visuais para ajudar a localizar palavras que merecem conferência na imagem original. Essa pontuação não é probabilidade calibrada de acerto; os limites visuais atuais são heurísticos.
 
 ### 11. Análise do texto para sugestões de estudo
 
@@ -127,7 +138,7 @@ As regras de palavras-chave continuam como reserva quando o modelo não está co
 - Download direto: <https://guillaumejaume.github.io/FUNSD/dataset.zip>
 - Licença (uso não comercial, de pesquisa e educacional): <https://guillaumejaume.github.io/FUNSD/work/>
 
-O FUNSD reúne 199 formulários reais digitalizados, com o texto de cada palavra anotado manualmente. O projeto o usa para **ajustar e avaliar** o pipeline de processamento de imagens: as 149 imagens de treino serviram para escolher os parâmetros, e as 50 de teste medem o ganho do pré-processamento no OCR, comparando o texto reconhecido com o anotado. O processo e os resultados estão em [AVALIACAO.md](AVALIACAO.md). No conjunto de teste, o pipeline elevou o F1 das palavras reconhecidas de 61,3% para 72,1% nos scans e de 32,4% para 67,6% em fotos simuladas.
+O FUNSD reúne 199 formulários reais digitalizados, com o texto de cada palavra anotado manualmente. O projeto o usa para **ajustar e avaliar** o pipeline de processamento de imagens: as 149 imagens de treino serviram para escolher os parâmetros, e as 50 de teste medem o ganho do pré-processamento no OCR, comparando o texto reconhecido com o anotado. O processo e os resultados estão em [AVALIACAO.md](AVALIACAO.md). No conjunto de teste, o pipeline elevou o F1 das palavras reconhecidas de 61,3% para 71,9% nos scans, de 32,4% para 67,8% em fotos simuladas e de 46,0% para 63,6% em fotos em perspectiva. O FUNSD também serve de gabarito para avaliar diretamente a segmentação ([SEGMENTACAO.md](SEGMENTACAO.md)) e a medida de inclinação pela FFT ([FFT.md](FFT.md)).
 
 O FUNSD é usado como conjunto de validação do pré-processamento (não há treino com ele). O dataset não é redistribuído no repositório; o script `tools/avaliar_ocr.py` o baixa da fonte oficial.
 
@@ -144,7 +155,10 @@ Os arquivos `por.traineddata` e `eng.traineddata` citados no README são modelos
 ## Componentes relacionados
 
 - `backend/main.py`: endpoints, validação de upload, conversão de PDF, medição de tempo e resposta da API.
-- `backend/processamento.py`: pré-processamento, correção de inclinação, OCR e regras do assistente de estudos.
+- `backend/processamento.py`: pré-processamento, segmentação tinta × papel, correção de inclinação, OCR e regras do assistente de estudos.
+- `backend/perspectiva.py`: segmentação da folha e correção de perspectiva.
+- `backend/frequencia.py`: transformada de Fourier (espectro, medida de inclinação e filtro homomórfico).
 - `frontend/laboratorio/`: interface de envio e apresentação dos resultados.
 - `tools/avaliar_ocr.py`: avaliação do pipeline com o dataset FUNSD.
+- `tools/avaliar_segmentacao.py` e `tools/avaliar_fft.py`: avaliação direta da segmentação e do uso da FFT.
 - `requirements.txt`: dependências Python. O executável Tesseract e seus modelos de idioma são requisitos externos instalados separadamente.

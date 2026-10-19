@@ -114,6 +114,12 @@
                 <div class="ocr-heading"><div><span class="step-tag">03 / RECONHECIMENTO</span><h3>Texto identificado</h3></div><button id="copy-button" class="copy-button" disabled>Copiar texto <span>▢</span></button></div>
                 <pre id="recognized-text" class="recognized-text">O texto reconhecido será exibido aqui.</pre>
 
+                <div class="ocr-confidence-legend" aria-label="Legenda de confiança do OCR">
+                  <span><i class="confidence-swatch low"></i>Baixa: abaixo de 60</span>
+                  <span><i class="confidence-swatch medium"></i>Média: 60 a 84</span>
+                  <span><i class="confidence-swatch high"></i>Alta: 85 ou mais</span>
+                  <small>A pontuação do Tesseract é um indicador de incerteza, não uma probabilidade de acerto. As faixas são apenas visuais e não foram calibradas. Revise as palavras destacadas.</small>
+                </div>
                 <div class="assistant-card" aria-live="polite">
                   <div class="assistant-header">
                     <div><span class="step-tag">04 / ASSISTENTE</span><h3>Livro sugerido</h3></div>
@@ -309,8 +315,8 @@
             <span class="step-number">04</span>
             <div class="step-symbol orange">⤾</div>
             <h3>Correção de ângulo</h3>
-            <p>Estima a inclinação dos traços e gira a página para alinhar as linhas e reduzir erros de leitura.</p>
-            <span class="step-foot">ALINHAMENTO</span>
+            <p>Mede o ângulo das linhas de texto no espectro de Fourier (FFT) e gira a página para alinhá-las, reduzindo erros de leitura.</p>
+            <span class="step-foot">FFT + ALINHAMENTO</span>
           </article>
         </div>
       </section>
@@ -353,7 +359,7 @@
             <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/05-inclinacao.webp" alt="Página inclinada ao lado da versão alinhada, com linhas-guia horizontais" loading="lazy" width="726" height="400"><figcaption>antes → alinhada</figcaption></figure>
             <span class="topic-tag">05</span>
             <h3>Correção de inclinação</h3>
-            <p>Quando a página está torta, o texto pode ficar distorcido. A correção angular ajuda a alinhar as linhas, melhorando o reconhecimento automático.</p>
+            <p>Quando a página está torta, o texto pode ficar distorcido. Linhas de texto se repetem em intervalos regulares e, na transformada de Fourier, viram uma faixa brilhante perpendicular a elas: o ângulo dessa faixa é a inclinação a corrigir.</p>
           </article>
           <article class="topic-card" data-reveal>
             <figure class="topic-figure"><img src="/static/laboratorio/fundamentos/06-ocr.webp" alt="Texto reconhecido e exibido a partir de uma página" loading="lazy" width="726" height="400"><figcaption>antes → texto reconhecido</figcaption></figure>

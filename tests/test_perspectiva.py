@@ -3,8 +3,8 @@ import unittest
 import cv2
 import numpy as np
 
-from backend.perspectiva import corrigir_perspectiva
-from backend.processamento import _medir_inclinacao
+from backend.frequencia import medir_inclinacao_fft
+from backend.perspectiva import corrigir_perspectiva, detectar_folha
 
 
 def pagina(largura=600, altura=800) -> np.ndarray:
@@ -37,7 +37,14 @@ class TestPerspectiva(unittest.TestCase):
         # As linhas de texto voltam a ficar horizontais. (A proporção exata do papel não é recuperável
         # de uma foto sem conhecer a câmera; para o OCR o que importa é o texto reto.)
         _, binaria = cv2.threshold(cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        self.assertLess(abs(_medir_inclinacao(binaria)), 1.0)
+        self.assertLess(abs(medir_inclinacao_fft(binaria)[0]), 1.0)
+
+    def test_cantos_detectados_coincidem_com_a_folha(self):
+        cantos = np.float32([[260, 120], [820, 170], [900, 900], [180, 840]])
+        detectados = detectar_folha(sobre_a_mesa(pagina(), cantos))
+        self.assertIsNotNone(detectados)
+        # Ordem (topo-esq., topo-dir., base-dir., base-esq.) e erro de poucos pixels numa foto de 1100 px.
+        self.assertLess(np.abs(detectados - cantos).max(), 6)
 
     def test_nao_mexe_em_scan_sem_fundo(self):
         scan = pagina()

@@ -12,6 +12,9 @@ contas.db
 # O dataset da Wikipédia (datasets/materias_wikipedia.jsonl) é versionado: CC BY-SA, com atribuição.
 datasets/funsd/
 datasets/funsd.zip
+datasets/bressay/
+**/resultados_nexo.csv
+**/resumo_estudo.json
 
 # Miniaturas do histórico no modo local (sem Supabase)
 dados/

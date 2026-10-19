@@ -1,0 +1,76 @@
+{
+  "inclinacao": {
+    "foto simulada (giro de 3° a 6°)": {
+      "projeção ±15° (método anterior)": {
+        "erro_medio": 0.2952991773782742,
+        "erro_mediano": 0.1682808673763856,
+        "erro_maximo": 2.0865891963984433,
+        "fracao_ate_1_grau": 0.98,
+        "ms_por_pagina": 40.357090000179596
+      },
+      "projeção ±45°": {
+        "erro_medio": 0.2952991773782742,
+        "erro_mediano": 0.1682808673763856,
+        "erro_maximo": 2.0865891963984433,
+        "fracao_ate_1_grau": 0.98,
+        "ms_por_pagina": 86.3216760000796
+      },
+      "FFT ±45° (usado no app)": {
+        "erro_medio": 0.32280284433208245,
+        "erro_mediano": 0.19096959975093108,
+        "erro_maximo": 2.085920861437505,
+        "fracao_ate_1_grau": 0.98,
+        "ms_por_pagina": 61.645814000221435
+      }
+    },
+    "giro grande (até ±40°)": {
+      "projeção ±15° (método anterior)": {
+        "erro_medio": 12.066879314323925,
+        "erro_mediano": 6.016654477712006,
+        "erro_maximo": 54.049775810283,
+        "fracao_ate_1_grau": 0.34,
+        "ms_por_pagina": 40.76618799997959
+      },
+      "projeção ±45°": {
+        "erro_medio": 0.2995266245841965,
+        "erro_mediano": 0.1848131115462328,
+        "erro_maximo": 2.03960034042246,
+        "fracao_ate_1_grau": 0.98,
+        "ms_por_pagina": 85.34847799979616
+      },
+      "FFT ±45° (usado no app)": {
+        "erro_medio": 0.3069315809357,
+        "erro_mediano": 0.17696176192456292,
+        "erro_maximo": 2.0386069932544757,
+        "fracao_ate_1_grau": 0.98,
+        "ms_por_pagina": 60.62059399991995
+      }
+    }
+  },
+  "confianca": {
+    "limiar": 4.0,
+    "paginas_com_texto": 50,
+    "destaque_minimo_com_texto": 4.669911889186761,
+    "paginas_aceitas": 50,
+    "imagens_sem_texto": 31,
+    "destaque_maximo_sem_texto": 4.517243827935866,
+    "imagens_sem_texto_giradas": 1
+  },
+  "ocr_paginas_giradas_15_a_40_graus": {
+    "projeção ±15° (antes)": 0.23876747646013577,
+    "FFT ±45° (agora)": 0.6930012381276314
+  },
+  "iluminacao_f1_ocr": {
+    "scan original": {
+      "divisão pelo fundo (usada no app)": 0.718603611918451,
+      "filtro homomórfico (FFT)": 0.7089031516150307
+    },
+    "foto simulada": {
+      "divisão pelo fundo (usada no app)": 0.6784602872312563,
+      "filtro homomórfico (FFT)": 0.6609942099298294
+    }
+  },
+  "figuras": {
+    "magnitude_invariante_a_deslocamento": true
+  }
+}

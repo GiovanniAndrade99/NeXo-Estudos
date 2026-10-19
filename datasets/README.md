@@ -22,3 +22,7 @@ classificador do Assistente de Estudos (`backend/classificador.py`, métricas em
 
 O FUNSD é baixado da fonte oficial por `tools/avaliar_ocr.py`; a licença dele não permite redistribuição.
 Detalhes em [`docs/AVALIACAO.md`](../docs/AVALIACAO.md).
+
+## BRESSAY — OCR de páginas manuscritas em português brasileiro
+
+Conjunto externo de ensaios manuscritos brasileiros com imagens e transcrições por página/linha/parágrafo. Baixe-o separadamente pelo [registro oficial do Zenodo](https://zenodo.org/records/11637681) e consulte [docs/AVALIACAO_PTBR.md](../docs/AVALIACAO_PTBR.md) para avaliar o Tesseract direto e o pipeline do NeXo. O arquivo é grande (cerca de 1,5 GB) e não é redistribuído aqui; confirme os direitos de uso antes de republicar qualquer material ou resultado por página.

@@ -6,8 +6,9 @@ Aplicacao academica de processamento digital de imagens e reconhecimento optico 
 
 - Upload de ate dois arquivos por processamento: PNG, JPG/JPEG, BMP, TIFF, WEBP ou PDF.
 - Conversao das paginas do PDF em imagens para processamento; cada PDF pode ter ate 10 paginas.
-- Pre-processamento com tons de cinza, ajuste de contraste, reducao de ruido, binarizacao e correcao de inclinacao.
+- Pre-processamento com correcao de perspectiva, tons de cinza, normalizacao de iluminacao, reducao de ruido, binarizacao (Otsu) e correcao de inclinacao medida pela transformada de Fourier (FFT).
 - OCR em portugues e ingles via Tesseract.
+- Destaque da confianca estimada pelo Tesseract para orientar a revisao manual.
 - Tempo de processamento individual de cada imagem ou pagina, mostrado em milissegundos ou segundos.
 - Laboratório protegido por login em `/login`, com criação de conta, recuperação de senha e bloqueio após 5 tentativas erradas.
 - Menu **Comparar imagens**, logo abaixo de **Historico**, com tempos por item e comparacao de quaisquer duas imagens salvas no historico.
@@ -23,12 +24,11 @@ O pipeline de processamento de imagens foi ajustado e avaliado com o dataset pú
 
 | Condição (50 imagens de teste) | Sem pré-processamento | Com o pipeline |
 |---|---|---|
-| Scan original | 61,3% | **72,1%** |
-| Foto simulada (sombra, ruído e inclinação) | 32,4% | **67,6%** |
+| Scan original | 61,3% | **71,9%** |
+| Foto simulada (sombra, ruído e inclinação) | 32,4% | **67,8%** |
+| Foto em perspectiva (folha fotografada de lado) | 46,0% | **63,6%** |
 
-| Foto em perspectiva (folha fotografada de lado) | 46,0% | **63,3%** |
-
-*F1 das palavras reconhecidas pelo OCR em relação ao texto anotado.* Metodologia, resultados por imagem e instruções para reproduzir: [docs/AVALIACAO.md](docs/AVALIACAO.md).
+*F1 das palavras reconhecidas pelo OCR em relação ao texto anotado.* Metodologia, resultados por imagem e instruções para reproduzir: [docs/AVALIACAO.md](docs/AVALIACAO.md). A segmentação (folha e tinta × papel) é avaliada com gabarito por pixel em [docs/SEGMENTACAO.md](docs/SEGMENTACAO.md), e o uso da transformada de Fourier em [docs/FFT.md](docs/FFT.md).
 
 ## Banco de dados (Supabase)
 
@@ -148,3 +148,5 @@ README.md
 ## Limites de upload
 
 Cada arquivo pode ter no maximo 12 MB. Sao aceitos ate dois arquivos por requisicao e ate 10 paginas por PDF. PDFs protegidos por senha nao sao processados. As imagens sao processadas localmente pelo servidor deste projeto. Miniaturas JPEG para comparacao ficam no IndexedDB deste navegador junto ao historico; os registros antigos sem miniatura precisam ser processados novamente para entrar na comparacao.
+
+A avaliacao complementar com paginas manuscritas em portugues brasileiro (BRESSAY), o formato de coleta consentida de paginas impressas e o protocolo para estudo com estudantes estao em [docs/AVALIACAO_PTBR.md](docs/AVALIACAO_PTBR.md) e [docs/ESTUDO_USABILIDADE_APRENDIZAGEM.md](docs/ESTUDO_USABILIDADE_APRENDIZAGEM.md). Os instrumentos ficam em [docs/modelos/](docs/modelos/). O BRESSAY nao e redistribuido pelo projeto.

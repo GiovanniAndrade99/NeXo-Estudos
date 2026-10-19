@@ -566,6 +566,7 @@ async def processar_arquivo(request: Request, arquivos: list[UploadFile] = File(
                     "ocr_disponivel": resultado.ocr_disponivel,
                     "aviso": resultado.aviso,
                     "texto": resultado.texto,
+                    "palavras_ocr": resultado.palavras_ocr or [],
                     "assistente_estudos": resultado.assistente_estudos,
                     "descricao_processo": resultado.descricao_processo,
                     "imagens": {

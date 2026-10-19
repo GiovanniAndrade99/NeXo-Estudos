@@ -12,6 +12,7 @@ import numpy as np
 import pytesseract
 
 from .classificador import classificar_materia
+from .frequencia import DESTAQUE_MINIMO, destaque_do_pico, medir_inclinacao_fft
 from .perspectiva import corrigir_perspectiva
 from .exercicios import montar_exercicios
 from .resumo import resumir
@@ -146,6 +147,7 @@ class ResultadoProcessamento:
     assistente_estudos: dict | None = None
     descricao_processo: str = ""
     perspectiva_corrigida: bool = False
+    palavras_ocr: list[dict] | None = None
 
 
 def _normalizar_texto_para_busca(texto: str) -> str:
@@ -430,7 +432,6 @@ def decodificar_imagem(conteudo: bytes) -> np.ndarray:
     return imagem
 
 
-INCLINACAO_MAXIMA = 15.0
 LADO_MINIMO_OCR = 2000
 
 
@@ -443,44 +444,43 @@ def _ampliar_para_ocr(tons_cinza: np.ndarray) -> np.ndarray:
     return cv2.resize(tons_cinza, None, fx=fator, fy=fator, interpolation=cv2.INTER_CUBIC)
 
 
-def _normalizar_iluminacao(tons_cinza: np.ndarray) -> np.ndarray:
+JANELA_FUNDO = 31  # mediano usado para estimar o fundo; deve ser bem maior que a altura das letras
+
+
+def _normalizar_iluminacao(tons_cinza: np.ndarray, janela_fundo: int = JANELA_FUNDO) -> np.ndarray:
     """Divide a imagem pelo próprio fundo estimado, removendo sombras e luz desigual.
 
     A dilatação apaga as letras (escuras) e o mediano grande suaviza o que sobra:
     o resultado aproxima o papel sem texto. Dividir por ele deixa o fundo uniforme.
     """
-    fundo = cv2.medianBlur(cv2.dilate(tons_cinza, np.ones((7, 7), np.uint8)), 31)
+    fundo = cv2.medianBlur(cv2.dilate(tons_cinza, np.ones((7, 7), np.uint8)), janela_fundo)
     return cv2.divide(tons_cinza, fundo, scale=255)
 
 
-def _medir_inclinacao(binaria: np.ndarray) -> float:
-    """Ângulo em que as linhas de texto ficam mais "nítidas" na projeção horizontal.
+def segmentar_texto(tons_cinza: np.ndarray, janela_fundo: int = JANELA_FUNDO) -> np.ndarray:
+    """Segmentação tinta × papel: texto em preto (0) e fundo em branco (255).
 
-    Para cada ângulo testado, soma a tinta de cada linha de pixels: com o texto alinhado,
-    linhas de texto e entrelinhas alternam entre somas altas e baixas, e a variância é máxima.
-    Diferente do retângulo mínimo, bordas, linhas de formulário e sujeira quase não pesam.
+    1. Normalização de iluminação: divide pelo fundo estimado (remove sombra e luz desigual).
+    2. Filtro mediano 3x3: remove pontos isolados de ruído sem borrar as bordas das letras.
+    3. Limiar de Otsu: escolhe automaticamente o nível de cinza que melhor separa os dois grupos.
+    Avaliação com gabarito por pixel em docs/SEGMENTACAO.md.
     """
-    tinta = 255 - binaria
-    escala = 1000 / max(tinta.shape)
-    if escala < 1:
-        tinta = cv2.resize(tinta, None, fx=escala, fy=escala, interpolation=cv2.INTER_AREA)
-    altura, largura = tinta.shape
-    centro = (largura / 2, altura / 2)
-
-    def nitidez(angulo: float) -> float:
-        matriz = cv2.getRotationMatrix2D(centro, angulo, 1.0)
-        girada = cv2.warpAffine(tinta, matriz, (largura, altura), flags=cv2.INTER_NEAREST, borderValue=0)
-        return float(np.var(girada.sum(axis=1, dtype=np.float64)))
-
-    grosso = max(np.arange(-INCLINACAO_MAXIMA, INCLINACAO_MAXIMA + 0.01, 1.0), key=nitidez)
-    return float(max(np.arange(grosso - 1, grosso + 1.01, 0.1), key=nitidez))
+    sem_ruido = cv2.medianBlur(_normalizar_iluminacao(tons_cinza, janela_fundo), 3)
+    _, binaria = cv2.threshold(sem_ruido, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return binaria
 
 
 def _corrigir_inclinacao(binaria: np.ndarray) -> tuple[np.ndarray, float]:
+    """Endireita o texto pelo ângulo medido no espectro de Fourier (backend/frequencia.py).
+
+    Se o espectro não mostra o padrão das linhas de texto (pico pouco destacado), a imagem
+    não é girada: sem texto não há o que alinhar.
+    """
     if cv2.countNonZero(255 - binaria) < 20:
         return binaria, 0.0
-    correcao = round(_medir_inclinacao(binaria), 2)
-    if abs(correcao) < 0.2:
+    correcao, _, energia = medir_inclinacao_fft(binaria)
+    correcao = round(correcao, 2)
+    if abs(correcao) < 0.2 or destaque_do_pico(energia) < DESTAQUE_MINIMO:
         return binaria, 0.0
     altura, largura = binaria.shape[:2]
     matriz = cv2.getRotationMatrix2D((largura / 2, altura / 2), correcao, 1.0)
@@ -496,21 +496,44 @@ def processar(imagem: np.ndarray) -> ResultadoProcessamento:
     # Foto tirada de lado: recorta e endireita a folha antes de tudo (backend/perspectiva.py).
     folha, perspectiva_corrigida = corrigir_perspectiva(imagem)
     tons_cinza = cv2.cvtColor(folha, cv2.COLOR_BGR2GRAY)
-    ampliada = _ampliar_para_ocr(tons_cinza)
-    iluminacao_uniforme = _normalizar_iluminacao(ampliada)
-    sem_ruido = cv2.medianBlur(iluminacao_uniforme, 3)
-    _, binaria = cv2.threshold(sem_ruido, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    binaria = segmentar_texto(_ampliar_para_ocr(tons_cinza))
     alinhada, inclinacao = _corrigir_inclinacao(binaria)
     config_dados = _configurar_tesseract()
     disponivel, aviso = tesseract_disponivel()
     texto = ""
+    palavras_ocr: list[dict] = []
     if disponivel:
         try:
-            texto = pytesseract.image_to_string(
+            dados_ocr = pytesseract.image_to_data(
                 alinhada, lang=IDIOMAS_OCR, config=f"--psm 6 {config_dados}".strip(),
-            ).strip()
+                output_type=pytesseract.Output.DICT,
+            )
+            linhas: dict[tuple[str, str, str, str], list[str]] = {}
+            for indice, bruto in enumerate(dados_ocr.get("text", [])):
+                palavra = str(bruto).strip()
+                if not palavra:
+                    continue
+                chave = tuple(str(dados_ocr[campo][indice]) for campo in
+                              ("page_num", "block_num", "par_num", "line_num"))
+                linhas.setdefault(chave, []).append(palavra)
+                try:
+                    valor_confianca = float(dados_ocr["conf"][indice])
+                    confianca = max(0.0, min(100.0, valor_confianca)) if valor_confianca >= 0 else None
+                except (ValueError, TypeError, IndexError):
+                    confianca = None
+                palavras_ocr.append({
+                    "texto": palavra,
+                    "confianca": round(confianca, 1) if confianca is not None else None,
+                    "caixa": {
+                        "x": int(dados_ocr["left"][indice]), "y": int(dados_ocr["top"][indice]),
+                        "largura": int(dados_ocr["width"][indice]), "altura": int(dados_ocr["height"][indice]),
+                    },
+                    "linha": ".".join(chave),
+                })
+            texto = "\n".join(" ".join(palavras) for palavras in linhas.values()).strip()
         except pytesseract.TesseractError as erro:
             disponivel = False
+            palavras_ocr = []
             aviso = "O Tesseract não conseguiu processar esta imagem: " + str(erro)
     assistente_estudos = detectar_conteudo_assistente(texto)
     descricao_processo = gerar_descricao_processo(texto, assistente_estudos)
@@ -519,6 +542,7 @@ def processar(imagem: np.ndarray) -> ResultadoProcessamento:
         inclinacao_corrigida_graus=round(inclinacao, 2),
         perspectiva_corrigida=perspectiva_corrigida,
         ocr_disponivel=disponivel, aviso=aviso,
+        palavras_ocr=palavras_ocr,
         assistente_estudos=assistente_estudos,
         descricao_processo=descricao_processo,
     )
