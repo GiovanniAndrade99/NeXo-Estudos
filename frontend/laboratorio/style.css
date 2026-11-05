@@ -2074,3 +2074,13 @@ button, input { font: inherit; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.asset-tabs {
+  margin-top: 0;
+}
+.asset-tabs .result-tab {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

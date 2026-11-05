@@ -882,6 +882,52 @@ function formatDuration(milliseconds) {
   return milliseconds < 1000 ? `${Math.round(milliseconds)} ms` : `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
+const assetTabs = document.querySelector("#asset-tabs");
+
+function assetLabel(asset) {
+  return asset.nome_arquivo + (asset.pagina ? ` · pág. ${asset.pagina}` : "");
+}
+
+// Uma aba por imagem (ou página de PDF) processada; com um único resultado a barra fica oculta.
+function renderAssetTabs() {
+  assetTabs.hidden = processedAssets.length < 2;
+  assetTabs.innerHTML = processedAssets.map((asset, index) => `
+    <button class="result-tab" type="button" role="tab" data-asset-tab="${index}" title="${escapeHtml(assetLabel(asset))}">${escapeHtml(assetLabel(asset))}</button>
+  `).join("");
+}
+
+assetTabs.addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-asset-tab]");
+  if (tab) showAsset(Number(tab.dataset.assetTab));
+});
+
+function showAsset(index) {
+  const payload = processedAssets[index];
+  if (!payload) return;
+  const sourceFile = selectedFiles[payload.fileIndex] || selectedFiles[0];
+  assetTabs.querySelectorAll("[data-asset-tab]").forEach((tab) => {
+    const active = Number(tab.dataset.assetTab) === index;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+  document.querySelector("#result-badge").textContent = payload.ocr_disponivel ? "ANALISE CONCLUIDA" : "IMAGEM PROCESSADA";
+  document.querySelector("#file-name").textContent = assetLabel(payload).replace(" · pág. ", " - Pagina ");
+  document.querySelector("#image-dimensions").textContent = payload.dimensoes.largura + " x " + payload.dimensoes.altura;
+  document.querySelector("#rotation-value").textContent = payload.inclinacao_corrigida_graus + " graus";
+  document.querySelector("#original-image").src = imageUrl(payload.imagens.original);
+  processedImageSource = imageUrl(payload.imagens.processada);
+  processedImage.src = processedImageSource;
+  saveImageButton.disabled = false;
+  applyManualAdjustments();
+  const descricaoProcesso = payload.descricao_processo || "A imagem foi processada em tons de cinza, com contraste ajustado, ruido reduzido e alinhamento aplicado antes da extracao do conteudo.";
+  renderRecognizedText(payload.texto || descricaoProcesso, payload.palavras_ocr || []);
+  document.querySelector("#copy-button").disabled = false;
+  const warning = document.querySelector("#ocr-warning");
+  warning.hidden = !payload.aviso;
+  warning.textContent = payload.aviso || "";
+  renderAssistenteEstudos(payload.assistente_estudos);
+  updateDetails(payload, sourceFile);
+}
 
 processButton.addEventListener("click", async () => {
   if (!selectedFiles.length) return;
@@ -901,27 +947,10 @@ processButton.addEventListener("click", async () => {
     const files = data.arquivos || [{ nome_arquivo: selectedFiles[0].name, paginas: [data] }];
     processedAssets = files.flatMap((file, fileIndex) => (file.paginas || []).map((page) => ({ ...page, nome_arquivo: file.nome_arquivo, formato: file.formato, fileIndex })));
     if (!processedAssets.length) throw new Error("Nao foi encontrada nenhuma pagina para exibir.");
-    const payload = processedAssets[0];
-    const sourceFile = selectedFiles[payload.fileIndex] || selectedFiles[0];
     document.querySelector("#empty-result").hidden = true;
     document.querySelector("#result-content").hidden = false;
-    document.querySelector("#result-badge").textContent = payload.ocr_disponivel ? "ANALISE CONCLUIDA" : "IMAGEM PROCESSADA";
-    document.querySelector("#file-name").textContent = payload.nome_arquivo + (payload.pagina ? ` - Pagina ${payload.pagina}` : "");
-    document.querySelector("#image-dimensions").textContent = payload.dimensoes.largura + " x " +payload.dimensoes.altura;
-    document.querySelector("#rotation-value").textContent = payload.inclinacao_corrigida_graus + " graus";
-    document.querySelector("#original-image").src = imageUrl(payload.imagens.original);
-    processedImageSource = imageUrl(payload.imagens.processada);
-    processedImage.src = processedImageSource;
-    saveImageButton.disabled = false;
-    applyManualAdjustments();
-    const descricaoProcesso = payload.descricao_processo || "A imagem foi processada em tons de cinza, com contraste ajustado, ruido reduzido e alinhamento aplicado antes da extracao do conteudo.";
-    renderRecognizedText(payload.texto || descricaoProcesso, payload.palavras_ocr || []);
-    document.querySelector("#copy-button").disabled = false;
-    const warning = document.querySelector("#ocr-warning");
-    warning.hidden = !payload.aviso;
-    warning.textContent = payload.aviso || "";
-    renderAssistenteEstudos(payload.assistente_estudos);
-    updateDetails(payload, sourceFile);
+    renderAssetTabs();
+    showAsset(0);
 
     // O servidor já gravou cada página no histórico da conta; basta recarregar a lista.
     await carregarHistorico();
